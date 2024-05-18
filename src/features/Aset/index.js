@@ -229,7 +229,7 @@ function DetailAset() {
               Previous
             </button>
             <button
-              className="btn"
+              className="btn ml-5"
               onClick={goToNextPage}
               disabled={currentPage === totalPages}
             >
