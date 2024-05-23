@@ -8,6 +8,7 @@ import ConfirmDialog from "../../components/Dialog/ConfirmDialog";
 import CardInput from "../../components/Cards/CardInput";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { FunnelIcon } from '@heroicons/react/24/outline'; // Gunakan ikon yang sesuai
 
 function RiwayatAset() {
   const [assets, setAssets] = useState([]);
@@ -140,12 +141,20 @@ function RiwayatAset() {
   return (
     <>
       <TitleCard title="Riwayat Pemeliharaan Aset" topMargin="mt-2">
-        <div className="mb-4 flex relative">
-          <button className="btn btn-white mr-2" onClick={handleFilterClick}>
-            Filter
+        <div className="mb-4 flex justify-between items-center relative">
+          <input
+            type="text"
+            placeholder="Cari Riwayat Pemeliharaan Aset"
+            className="input input-bordered w-full max-w-xs"
+            value={searchQuery}
+            onChange={handleSearchChange}
+          />
+          <button className="btn btn-white flex items-center" onClick={handleFilterClick}>
+            <FunnelIcon className="w-5 h-5 mr-2" />
+            Tambahkan Filter
           </button>
           {isFilterOpen && (
-            <div className="absolute left-0 top-full mt-2 w-48 bg-white shadow-lg rounded-lg z-10">
+            <div className="absolute right-0 top-full mt-2 w-48 bg-white shadow-lg rounded-lg z-10">
               <div className="p-4">
                 <div className="mb-2">
                   <label htmlFor="kondisi" className="block font-medium">
@@ -182,13 +191,6 @@ function RiwayatAset() {
               </div>
             </div>
           )}
-          <input
-            type="text"
-            placeholder="Cari aset..."
-            className="input input-bordered w-full max-w-xs"
-            value={searchQuery}
-            onChange={handleSearchChange}
-          />
         </div>
         <div className="overflow-x-auto w-full">
           <table className="table w-full">
