@@ -13,11 +13,13 @@ import BASE_URL_API from "../../config";
 import { fetchData, postData, updateData, deleteData } from "../../utils/utils";
 
 const API_URL = `${BASE_URL_API}api/v1/manage-aset/aset`;
+const VENDOR_API_URL = `${BASE_URL_API}api/v1/manage-aset/vendor`;
 const ITEMS_PER_PAGE = 10;
 
 function DetailAset() {
   const [assets, setAssets] = useState([]);
   const [filteredAssets, setFilteredAssets] = useState([]);
+  const [vendors, setVendors] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [modal, setModal] = useState({
@@ -46,11 +48,13 @@ function DetailAset() {
   const [imagePreview, setImagePreview] = useState(null);
   const { enqueueSnackbar } = useSnackbar();
   const [searchQuery, setSearchQuery] = useState("");
+  const [vendor, setVendor] = useState(null);
 
   const modalRef = useRef(null);
 
   useEffect(() => {
     fetchAssets();
+    fetchVendors();
   }, []);
 
   useEffect(() => {
@@ -96,6 +100,35 @@ function DetailAset() {
     }
   };
 
+  const fetchVendors = async () => {
+    try {
+      const result = await fetchData(VENDOR_API_URL);
+      if (result.status === 200) {
+        setVendors(result.data);
+      } else {
+        console.error("API error:", result.message);
+      }
+    } catch (error) {
+      console.error("Fetch vendors error:", error.message);
+    }
+  };
+
+  const getVendor = async (id) => {
+    try {
+      const result = await fetchData(`${VENDOR_API_URL}/${id}`);
+      if (result.status === 200) {
+        setVendor(result.data);
+        return result.data;
+      } else {
+        enqueueSnackbar("Vendor tidak ditemukan", { variant: "error" });
+        return null;
+      }
+    } catch (error) {
+      enqueueSnackbar("Vendor tidak ditemukan", { variant: "error" });
+      return null;
+    }
+  };
+
   const handleDeleteAsset = (id) => {
     setModal({
       isOpen: true,
@@ -105,10 +138,12 @@ function DetailAset() {
     });
   };
 
-  const handleEditAsset = (asset) => {
+  const handleEditAsset = async (asset) => {
     const parseDate = (dateString) => {
       return dateString ? new Date(dateString) : new Date();
     };
+
+    const vendorData = await getVendor(asset.vendor_id);
 
     setEditFormData({
       ...editFormData,
@@ -119,9 +154,9 @@ function DetailAset() {
       noSeri: asset.kode_produksi || "",
       tahunProduksi: asset.tahun_produksi || "",
       deskripsiAset: asset.deskripsi_aset || "",
-      namaVendor: asset.vendor_id,
+      namaVendor: vendorData ? `${vendorData.nama_vendor}` : "",
       jumlahAsetMasuk: asset.jumlah_aset || "",
-      infoVendor: "",
+      infoVendor: vendorData ? `${vendorData.telp_vendor}` : "",
       tanggalAsetMasuk: parseDate(asset.aset_masuk),
       tanggalGaransiMulai: parseDate(asset.garansi_dimulai),
       tanggalGaransiBerakhir: parseDate(asset.garansi_berakhir),
@@ -131,6 +166,21 @@ function DetailAset() {
       asset.gambar_aset.image_url || "https://via.placeholder.com/150"
     );
     setIsEditModalOpen(true);
+  };
+
+  const handleVendorChange = async (e) => {
+    const selectedVendorId = e.target.value;
+    const selectedVendor = vendors.find(
+      (vendor) => vendor.nama_vendor === selectedVendorId
+    );
+
+    if (selectedVendor) {
+      setEditFormData((prevState) => ({
+        ...prevState,
+        namaVendor: selectedVendor.nama_vendor,
+        infoVendor: selectedVendor.telp_vendor,
+      }));
+    }
   };
 
   const closeDialog = () => {
@@ -176,7 +226,14 @@ function DetailAset() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const dataToUpdate = new FormData();
-    dataToUpdate.append("vendor_id", editFormData.namaVendor);
+    const selectedVendor = vendors.find(
+      (vendor) => vendor.nama_vendor === editFormData.namaVendor
+    );
+
+    dataToUpdate.append(
+      "vendor_id",
+      selectedVendor ? selectedVendor._id : editFormData.namaVendor
+    );
     dataToUpdate.append("nama", editFormData.namaAset);
     dataToUpdate.append("kategori", editFormData.kategoriAset);
     dataToUpdate.append("merek", editFormData.merekAset);
@@ -252,6 +309,11 @@ function DetailAset() {
     setCurrentPage(1);
   };
 
+  const getVendorName = (vendorId) => {
+    const vendor = vendors.find((vendor) => vendor._id === vendorId);
+    return vendor ? vendor.nama_vendor : "Unknown Vendor";
+  };
+
   const paginatedAssets = filteredAssets.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
@@ -306,7 +368,7 @@ function DetailAset() {
                   <td>
                     {moment(asset.garansi_berakhir).format("DD MMM YYYY")}
                   </td>
-                  <td>{asset.vendor_id}</td>
+                  <td>{getVendorName(asset.vendor_id)}</td>
                   <td>{asset.kategori_aset}</td>
                   <td>{asset.jumlah_aset}</td>
                   <td>
@@ -555,13 +617,17 @@ function DetailAset() {
                     id="namaVendor"
                     name="namaVendor"
                     value={editFormData.namaVendor}
-                    onChange={handleInputChange}
+                    onChange={handleVendorChange}
                     className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
                   >
-                    <option value="">Pilih vendor</option>
-                    {assets.map((vendor) => (
-                      <option key={vendor._id} value={vendor.vendor_id}>
-                        {vendor.vendor_id}
+                    {editFormData.namaVendor && (
+                      <option value={editFormData.namaVendor}>
+                        {editFormData.namaVendor}
+                      </option>
+                    )}
+                    {vendors.map((vendor) => (
+                      <option key={vendor._id} value={vendor.nama_vendor}>
+                        {vendor.nama_vendor}
                       </option>
                     ))}
                   </select>

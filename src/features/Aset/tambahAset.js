@@ -19,6 +19,7 @@ function TambahAset() {
     deskripsiAset: "",
     VendorID: "",
     infoVendor: "",
+    tahunProduksi: "",
     jumlahAsetMasuk: "",
     tanggalAsetMasuk: new Date(),
     tanggalGaransiMulai: new Date(),
