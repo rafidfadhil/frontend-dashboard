@@ -59,9 +59,18 @@ function DetailAset() {
     try {
       const result = await fetchData(API_URL);
       if (result.status === 200) {
-        setAssets(result.data);
-        setFilteredAssets(result.data);
-        setTotalPages(Math.ceil(result.data.length / ITEMS_PER_PAGE));
+        // Add index to each asset
+        const assetsWithIndex = result.data.map((asset, index) => ({
+          ...asset,
+          index: index // Add index to each asset
+        }));
+
+        // Sort assets based on index in descending order
+        const sortedAssets = assetsWithIndex.sort((a, b) => b.index - a.index);
+
+        setAssets(sortedAssets);
+        setFilteredAssets(sortedAssets);
+        setTotalPages(Math.ceil(sortedAssets.length / ITEMS_PER_PAGE));
       } else {
         console.error("API error:", result.message);
       }

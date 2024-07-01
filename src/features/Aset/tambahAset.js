@@ -12,12 +12,12 @@ import moment from "moment"; // pastikan untuk mengimpor moment
 function TambahAset() {
   const { enqueueSnackbar } = useSnackbar();
   const [formData, setFormData] = useState({
-    namaAset: "",
+    NamaAset: "",
     merekAset: "",
     kategoriAset: "",
     jumlahAset: "",
     deskripsiAset: "",
-    namaVendor: "",
+    VendorID: "",
     infoVendor: "",
     jumlahAsetMasuk: "",
     tanggalAsetMasuk: new Date(),
@@ -29,10 +29,14 @@ function TambahAset() {
   const [fileName, setFileName] = useState("");
   const [vendors, setVendors] = useState([]);
 
+  console.log(formData);
+
   useEffect(() => {
     const fetchVendors = async () => {
       try {
-        const response = await fetchData(`${BASE_URL_API}api/v1/manage-aset/vendor`);
+        const response = await fetchData(
+          `${BASE_URL_API}api/v1/manage-aset/vendor`
+        );
         setVendors(response.data);
       } catch (error) {
         console.error("Error fetching vendors:", error);
@@ -45,7 +49,17 @@ function TambahAset() {
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    if (name === "VendorID") {
+      const selectedVendor = vendors.find(vendor => vendor._id === value);
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+        infoVendor: selectedVendor ? selectedVendor.telp_vendor : ""
+      }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleFileChange = (event) => {
@@ -59,27 +73,43 @@ function TambahAset() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const selectedVendor = vendors.find(vendor => vendor.nama_vendor === formData.namaVendor);
+    const selectedVendor = vendors.find(
+      (vendor) => vendor.nama_vendor === formData.namaVendor
+    );
+    console.log(selectedVendor);
 
     const dataToSubmit = new FormData();
-    dataToSubmit.append("VendorID", selectedVendor ? selectedVendor._id : "");
-    dataToSubmit.append("NamaAset", formData.namaAset);
+    dataToSubmit.append("VendorID", formData.VendorID);
+    dataToSubmit.append("NamaAset", formData.NamaAset);
     dataToSubmit.append("kategori", formData.kategoriAset);
     dataToSubmit.append("MerekAset", formData.merekAset);
     dataToSubmit.append("kode", formData.noSeri);
     dataToSubmit.append("TahunProduksi", formData.tahunProduksi);
     dataToSubmit.append("deskripsi", formData.deskripsiAset);
     dataToSubmit.append("jumlah", formData.jumlahAsetMasuk);
-    dataToSubmit.append("asetmasuk", moment(formData.tanggalAsetMasuk).format("YYYY-MM-DD"));
-    dataToSubmit.append("garansidimulai", moment(formData.tanggalGaransiMulai).format("YYYY-MM-DD"));
-    dataToSubmit.append("Garansiberakhir", moment(formData.tanggalGaransiBerakhir).format("YYYY-MM-DD"));
+    dataToSubmit.append(
+      "asetmasuk",
+      moment(formData.tanggalAsetMasuk).format("YYYY-MM-DD")
+    );
+    dataToSubmit.append(
+      "garansidimulai",
+      moment(formData.tanggalGaransiMulai).format("YYYY-MM-DD")
+    );
+    dataToSubmit.append(
+      "Garansiberakhir",
+      moment(formData.tanggalGaransiBerakhir).format("YYYY-MM-DD")
+    );
 
     if (imageFile) {
       dataToSubmit.append("gambar", imageFile, fileName);
     }
 
     try {
-      const result = await postData(`${BASE_URL_API}api/v1/manage-aset/aset`, dataToSubmit, true);
+      const result = await postData(
+        `${BASE_URL_API}api/v1/manage-aset/aset`,
+        dataToSubmit,
+        true
+      );
       if (result.status === 200 || result.status === 201) {
         enqueueSnackbar("Aset berhasil disimpan.", { variant: "success" });
         // Reset form
@@ -123,8 +153,8 @@ function TambahAset() {
               </label>
               <input
                 type="text"
-                id="namaAset"
-                name="namaAset"
+                id="NamaAset"
+                name="NamaAset"
                 value={formData.namaAset}
                 onChange={handleInputChange}
                 placeholder="Masukkan Nama Aset"
@@ -304,8 +334,8 @@ function TambahAset() {
                 Nama Vendor *
               </label>
               <select
-                id="namaVendor"
-                name="namaVendor"
+                id="VendorID"
+                name="VendorID"
                 value={formData.namaVendor}
                 onChange={handleInputChange}
                 className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
@@ -353,9 +383,7 @@ function TambahAset() {
               </label>
               <DatePicker
                 selected={formData.tanggalAsetMasuk}
-                onChange={(date) =>
-                  handleDateChange(date, "tanggalAsetMasuk")
-                }
+                onChange={(date) => handleDateChange(date, "tanggalAsetMasuk")}
                 className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
                 dateFormat="MMMM d, yyyy"
                 wrapperClassName="date-picker"

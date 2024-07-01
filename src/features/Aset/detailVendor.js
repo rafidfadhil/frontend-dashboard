@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { useSnackbar } from "notistack";
 import TitleCard from "../../components/Cards/TitleCard";
-import CardInput from "../../components/Cards/CardInput"; // Pastikan Anda mengimpor komponen CardInput
+import CardInput from "../../components/Cards/CardInput";
 import TrashIcon from "@heroicons/react/24/outline/TrashIcon";
 import ConfirmDialog from "../../components/Dialog/ConfirmDialog";
 import PencilIcon from "@heroicons/react/24/outline/PencilIcon";
 import Button from "../../components/Button";
-import DialogComponent from "../../components/Dialog/InformationDialog"; // Sesuaikan path dengan lokasi file DialogComponent
+import DialogComponent from "../../components/Dialog/InformationDialog";
 import BASE_URL_API from "../../config";
 import { fetchData, postData, updateData, deleteData } from "../../utils/utils";
 
@@ -21,7 +21,7 @@ function DetailVendor() {
     id: null,
   });
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(false); // State untuk mengontrol tampilan DialogComponent
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({
     nama_vendor: "",
     telp_vendor: "",
@@ -37,10 +37,23 @@ function DetailVendor() {
 
   const fetchVendors = async () => {
     try {
-      const response = await fetchData(`${BASE_URL_API}api/v1/manage-aset/vendor`);
+      const response = await fetchData(
+        `${BASE_URL_API}api/v1/manage-aset/vendor`
+      );
       if (response && response.data) {
-        setVendors(response.data);
-        setTotalPages(Math.ceil(response.data.length / 10));
+        // Add index to each vendor
+        const vendorsWithIndex = response.data.map((vendor, index) => ({
+          ...vendor,
+          index: index,
+        }));
+
+        // Sort vendors based on index in descending order
+        const sortedVendors = vendorsWithIndex.sort(
+          (a, b) => b.index - a.index
+        );
+
+        setVendors(sortedVendors);
+        setTotalPages(Math.ceil(sortedVendors.length / 10));
       } else {
         console.error("API error:", response.info);
       }
@@ -78,12 +91,14 @@ function DetailVendor() {
   };
 
   const closeDialogComponent = () => {
-    setIsDialogOpen(false); // Fungsi untuk menutup DialogComponent
+    setIsDialogOpen(false);
   };
 
   const confirmDelete = async () => {
     try {
-      const response = await deleteData(`${BASE_URL_API}api/v1/manage-aset/vendor/${modal.id}`);
+      const response = await deleteData(
+        `${BASE_URL_API}api/v1/manage-aset/vendor/${modal.id}`
+      );
       if (response.status === 200) {
         setVendors(vendors.filter((vendor) => vendor._id !== modal.id));
         enqueueSnackbar("Vendor berhasil dihapus.", { variant: "success" });
@@ -103,12 +118,15 @@ function DetailVendor() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsDialogOpen(true); 
+    setIsDialogOpen(true);
     try {
-      const response = await updateData(`${BASE_URL_API}api/v1/manage-aset/vendor/${editFormData._id}`, editFormData);
+      const response = await updateData(
+        `${BASE_URL_API}api/v1/manage-aset/vendor/${editFormData._id}`,
+        editFormData
+      );
       if (response.status === 200) {
         enqueueSnackbar("Vendor berhasil disimpan.", { variant: "success" });
-        setIsDialogOpen(true); // Tampilkan dialog konfirmasi
+        setIsDialogOpen(true);
         fetchVendors();
       } else {
         enqueueSnackbar("Gagal menyimpan vendor.", { variant: "error" });
@@ -135,7 +153,10 @@ function DetailVendor() {
     setSearchQuery(e.target.value);
   };
 
-  const paginatedVendors = vendors.slice((currentPage - 1) * 10, currentPage * 10);
+  const paginatedVendors = vendors.slice(
+    (currentPage - 1) * 10,
+    currentPage * 10
+  );
 
   return (
     <>
