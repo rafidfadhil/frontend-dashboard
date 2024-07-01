@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import moment from "moment";
 import { useSnackbar } from "notistack";
 import TitleCard from "../../components/Cards/TitleCard";
@@ -47,6 +47,8 @@ function DetailAset() {
   const { enqueueSnackbar } = useSnackbar();
   const [searchQuery, setSearchQuery] = useState("");
 
+  const modalRef = useRef(null);
+
   useEffect(() => {
     fetchAssets();
   }, []);
@@ -55,17 +57,32 @@ function DetailAset() {
     handleSearch();
   }, [searchQuery, assets]);
 
+  useEffect(() => {
+    if (isEditModalOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    } else {
+      document.removeEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isEditModalOpen]);
+
+  const handleClickOutside = (event) => {
+    if (modalRef.current && !modalRef.current.contains(event.target)) {
+      closeEditModal();
+    }
+  };
+
   const fetchAssets = async () => {
     try {
       const result = await fetchData(API_URL);
       if (result.status === 200) {
-        // Add index to each asset
         const assetsWithIndex = result.data.map((asset, index) => ({
           ...asset,
-          index: index // Add index to each asset
+          index: index, // Add index to each asset
         }));
 
-        // Sort assets based on index in descending order
         const sortedAssets = assetsWithIndex.sort((a, b) => b.index - a.index);
 
         setAssets(sortedAssets);
@@ -110,7 +127,9 @@ function DetailAset() {
       tanggalGaransiBerakhir: parseDate(asset.garansi_berakhir),
     });
 
-    setImagePreview(asset.gambar_aset.image_url || "https://via.placeholder.com/150");
+    setImagePreview(
+      asset.gambar_aset.image_url || "https://via.placeholder.com/150"
+    );
     setIsEditModalOpen(true);
   };
 
@@ -165,16 +184,29 @@ function DetailAset() {
     dataToUpdate.append("produksi", editFormData.tahunProduksi);
     dataToUpdate.append("deskripsi", editFormData.deskripsiAset);
     dataToUpdate.append("jumlah", editFormData.jumlahAsetMasuk);
-    dataToUpdate.append("aset_masuk", moment(editFormData.tanggalAsetMasuk).format("YYYY-MM-DD"));
-    dataToUpdate.append("garansi_mulai", moment(editFormData.tanggalGaransiMulai).format("YYYY-MM-DD"));
-    dataToUpdate.append("garansi_berakhir", moment(editFormData.tanggalGaransiBerakhir).format("YYYY-MM-DD"));
+    dataToUpdate.append(
+      "aset_masuk",
+      moment(editFormData.tanggalAsetMasuk).format("YYYY-MM-DD")
+    );
+    dataToUpdate.append(
+      "garansi_mulai",
+      moment(editFormData.tanggalGaransiMulai).format("YYYY-MM-DD")
+    );
+    dataToUpdate.append(
+      "garansi_berakhir",
+      moment(editFormData.tanggalGaransiBerakhir).format("YYYY-MM-DD")
+    );
 
     if (imageFile) {
       dataToUpdate.append("gambar", imageFile);
     }
 
     try {
-      const result = await updateData(`${API_URL}/${editFormData._id}`, dataToUpdate, true);
+      const result = await updateData(
+        `${API_URL}/${editFormData._id}`,
+        dataToUpdate,
+        true
+      );
       if (result.status === 200) {
         const updatedAssets = assets.map((asset) =>
           asset._id === editFormData._id ? result.data : asset
@@ -270,9 +302,7 @@ function DetailAset() {
                   </td>
                   <td>{asset.nama_aset}</td>
                   <td>{moment(asset.aset_masuk).format("DD MMM YYYY")}</td>
-                  <td>
-                    {moment(asset.garansi_dimulai).format("DD MMM YYYY")}
-                  </td>
+                  <td>{moment(asset.garansi_dimulai).format("DD MMM YYYY")}</td>
                   <td>
                     {moment(asset.garansi_berakhir).format("DD MMM YYYY")}
                   </td>
@@ -325,14 +355,8 @@ function DetailAset() {
         onClose={closeDialog}
         onConfirm={confirmDelete}
       />
-      <div
-        className={`modal ${isEditModalOpen ? "modal-open" : ""}`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div
-          className="modal-box relative max-w-4xl"
-          onClick={(e) => e.stopPropagation()}
-        >
+      <div className={`modal ${isEditModalOpen ? "modal-open" : ""}`}>
+        <div ref={modalRef} className="modal-box relative max-w-4xl">
           <button
             className="absolute top-2 right-2 text-gray-600 hover:text-gray-800"
             onClick={closeEditModal}
