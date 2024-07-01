@@ -42,6 +42,7 @@ function DetailAset() {
     tanggalGaransiMulai: new Date(),
     tanggalGaransiBerakhir: new Date(),
   });
+  const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const { enqueueSnackbar } = useSnackbar();
   const [searchQuery, setSearchQuery] = useState("");
@@ -96,11 +97,11 @@ function DetailAset() {
       jumlahAsetMasuk: asset.jumlah_aset || "",
       infoVendor: "",
       tanggalAsetMasuk: parseDate(asset.aset_masuk),
-      tanggalGaransiMulai: parseDate(asset.tanggal_garansi_mulai),
-      tanggalGaransiBerakhir: parseDate(asset.tanggal_garansi_berakhir),
+      tanggalGaransiMulai: parseDate(asset.garansi_dimulai),
+      tanggalGaransiBerakhir: parseDate(asset.garansi_berakhir),
     });
 
-    setImagePreview(asset.gambar_aset.url || "https://via.placeholder.com/150");
+    setImagePreview(asset.gambar_aset.image_url || "https://via.placeholder.com/150");
     setIsEditModalOpen(true);
   };
 
@@ -130,6 +131,7 @@ function DetailAset() {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      setImageFile(file);
       setImagePreview(URL.createObjectURL(file));
     }
   };
@@ -145,21 +147,25 @@ function DetailAset() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    try {
-      const dataToUpdate = {
-        vendor_id: editFormData.namaVendor,
-        nama: editFormData.namaAset,
-        kategori: editFormData.kategoriAset,
-        merek: editFormData.merekAset,
-        kode: editFormData.noSeri,
-        produksi: editFormData.tahunProduksi,
-        deskripsi: editFormData.deskripsiAset,
-        gambar: {}, // Handle gambar file upload separately if needed
-        jumlah: editFormData.jumlahAsetMasuk,
-        aset_masuk: moment(editFormData.tanggalAsetMasuk).format("YYYY-MM-DD"),
-      };
+    const dataToUpdate = new FormData();
+    dataToUpdate.append("vendor_id", editFormData.namaVendor);
+    dataToUpdate.append("nama", editFormData.namaAset);
+    dataToUpdate.append("kategori", editFormData.kategoriAset);
+    dataToUpdate.append("merek", editFormData.merekAset);
+    dataToUpdate.append("kode", editFormData.noSeri);
+    dataToUpdate.append("produksi", editFormData.tahunProduksi);
+    dataToUpdate.append("deskripsi", editFormData.deskripsiAset);
+    dataToUpdate.append("jumlah", editFormData.jumlahAsetMasuk);
+    dataToUpdate.append("aset_masuk", moment(editFormData.tanggalAsetMasuk).format("YYYY-MM-DD"));
+    dataToUpdate.append("garansi_mulai", moment(editFormData.tanggalGaransiMulai).format("YYYY-MM-DD"));
+    dataToUpdate.append("garansi_berakhir", moment(editFormData.tanggalGaransiBerakhir).format("YYYY-MM-DD"));
 
-      const result = await updateData(`${API_URL}/${editFormData._id}`, dataToUpdate);
+    if (imageFile) {
+      dataToUpdate.append("gambar", imageFile);
+    }
+
+    try {
+      const result = await updateData(`${API_URL}/${editFormData._id}`, dataToUpdate, true);
       if (result.status === 200) {
         const updatedAssets = assets.map((asset) =>
           asset._id === editFormData._id ? result.data : asset
@@ -245,7 +251,7 @@ function DetailAset() {
                       <div className="mask mask-squircle w-12 h-12">
                         <img
                           src={
-                            asset.gambar_aset.url ||
+                            asset.gambar_aset.image_url ||
                             "https://via.placeholder.com/150"
                           }
                           alt="Foto Aset"
@@ -256,12 +262,10 @@ function DetailAset() {
                   <td>{asset.nama_aset}</td>
                   <td>{moment(asset.aset_masuk).format("DD MMM YYYY")}</td>
                   <td>
-                    {moment(asset.tanggal_garansi_mulai).format("DD MMM YYYY")}
+                    {moment(asset.garansi_dimulai).format("DD MMM YYYY")}
                   </td>
                   <td>
-                    {moment(asset.tanggal_garansi_berakhir).format(
-                      "DD MMM YYYY"
-                    )}
+                    {moment(asset.garansi_berakhir).format("DD MMM YYYY")}
                   </td>
                   <td>{asset.vendor_id}</td>
                   <td>{asset.kategori_aset}</td>
@@ -522,8 +526,11 @@ function DetailAset() {
                     className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
                   >
                     <option value="">Pilih vendor</option>
-                    <option value="666d29ced09dff28c5b42e2a">Vendor A</option>
-                    <option value="666d29ced09dff28c5b42e2b">Vendor B</option>
+                    {assets.map((vendor) => (
+                      <option key={vendor._id} value={vendor.vendor_id}>
+                        {vendor.vendor_id}
+                      </option>
+                    ))}
                   </select>
 
                   <label
