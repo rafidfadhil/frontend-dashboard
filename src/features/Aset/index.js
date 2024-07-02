@@ -499,10 +499,7 @@ function DetailAset() {
                     />
                   </div>
                   <div>
-                    <label
-                      htmlFor="tahunProduksi"
-                      className="block font-medium"
-                    >
+                    <label htmlFor="tahunProduksi" className="block font-medium">
                       Tahun Produksi
                     </label>
                     <input
@@ -516,10 +513,7 @@ function DetailAset() {
                     />
                   </div>
                   <div>
-                    <label
-                      htmlFor="deskripsiAset"
-                      className="block font-medium"
-                    >
+                    <label htmlFor="deskripsiAset" className="block font-medium">
                       Deskripsi Aset
                     </label>
                     <input
@@ -610,10 +604,7 @@ function DetailAset() {
                         onChange={handleFileChange}
                       />
                     </label>
-                    <span
-                      className="ml-2 text-sm text-gray-500"
-                      id="file-chosen"
-                    >
+                    <span className="ml-2 text-sm text-gray-500" id="file-chosen">
                       {imagePreview ? "File chosen" : "No File Chosen"}
                     </span>
                   </div>
