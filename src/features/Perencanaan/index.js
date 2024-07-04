@@ -10,10 +10,16 @@ import PencilIcon from "@heroicons/react/24/outline/PencilIcon";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Button from "../../components/Button";
+import BASE_URL_API from "../../config";
+import { fetchData, postData, updateData, deleteData } from "../../utils/utils";
 
+const API_URL = `${BASE_URL_API}api/v1/manage-aset/rencana`;
+const VENDOR_API_URL = `${BASE_URL_API}api/v1/manage-aset/vendor`;
+const ITEMS_PER_PAGE = 10;
 
 function DesignAset() {
   const [assets, setAssets] = useState([]);
+  const [vendors, setVendors] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [modal, setModal] = useState({
@@ -39,25 +45,28 @@ function DesignAset() {
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    fetchAssets(currentPage, searchQuery);
-  }, [currentPage, searchQuery]);
+    fetchAssets();
+    fetchVendors();
+  }, [searchQuery]);
 
-  const fetchAssets = async (page, query) => {
+  const fetchAssets = async () => {
     try {
-      const pageSize = 10;
-      const response = await axios.get(
-        `URL_API?page=${page}&pageSize=${pageSize}&search=${query}`
-      );
+      const response = await fetchData(API_URL);
       const result = response.data;
-      if (result.code === 0) {
-        setAssets(result.data);
-        setTotalPages(Math.ceil(result.totalCount / pageSize));
-      } else {
-        throw new Error("API error: " + result.info);
-      }
+      setAssets(result);
+      setTotalPages(Math.ceil(result.length / ITEMS_PER_PAGE));
     } catch (error) {
       console.error("Fetching error:", error.message);
       loadDummyData();
+    }
+  };
+
+  const fetchVendors = async () => {
+    try {
+      const response = await fetchData(VENDOR_API_URL);
+      setVendors(response.data);
+    } catch (error) {
+      console.error("Fetching vendors error:", error.message);
     }
   };
 
@@ -121,9 +130,9 @@ function DesignAset() {
 
   const confirmDelete = async () => {
     try {
-      const response = await axios.post("URL_DELETE_ASSET", { id: modal.id });
-      if (response.status === 200) {
-        setAssets(assets.filter((asset) => asset.id !== modal.id));
+      const response = await deleteData(`${API_URL}/${modal.id}`);
+      if (response) {
+        setAssets(assets.filter((asset) => asset._id !== modal.id));
         enqueueSnackbar("Aset berhasil dihapus.", { variant: "success" });
       } else {
         enqueueSnackbar("Gagal menghapus aset.", { variant: "error" });
@@ -143,10 +152,16 @@ function DesignAset() {
     setEditFormData({ ...editFormData, [name]: date });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Tambahkan logika untuk menyimpan data aset yang diubah
-    closeEditModal();
+    try {
+      await updateData(`${API_URL}/${editFormData._id}`, editFormData);
+      fetchAssets();
+      enqueueSnackbar("Aset berhasil diperbarui.", { variant: "success" });
+      closeEditModal();
+    } catch (error) {
+      enqueueSnackbar("Gagal memperbarui aset.", { variant: "error" });
+    }
   };
 
   const goToNextPage = () => {
@@ -164,6 +179,11 @@ function DesignAset() {
       setCurrentPage(currentPage - 1);
     }
   };
+
+  const paginatedAssets = assets.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   return (
     <>
@@ -191,18 +211,18 @@ function DesignAset() {
               </tr>
             </thead>
             <tbody>
-              {assets.map((asset) => (
-                <tr key={asset.id}>
+              {paginatedAssets.map((asset) => (
+                <tr key={asset._id}>
                   <td>{asset.name}</td>
-                  <td>{moment(asset.dateEntered).format("DD MMM YYYY")}</td>
+                  <td>{moment(asset.tgl_perencanaan).format("DD MMM YYYY")}</td>
                   <td>{asset.vendorName}</td>
-                  <td>{asset.condition}</td>
-                  <td>{asset.age}</td>
-                  <td>{asset.status}</td>
+                  <td>{asset.kondisi_aset}</td>
+                  <td>{asset.usia_aset}</td>
+                  <td>{asset.status_aset}</td>
                   <td>
                     <button
                       className="btn btn-square btn-ghost"
-                      onClick={() => handleDeleteAsset(asset.id)}
+                      onClick={() => handleDeleteAsset(asset._id)}
                     >
                       <TrashIcon className="w-5 h-5" />
                     </button>
@@ -270,8 +290,11 @@ function DesignAset() {
                     className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
                   >
                     <option>Pilih Aset Rencana pemeliharaan</option>
-                    <option value="Aset1">Aset 1</option>
-                    <option value="Aset2">Aset 2</option>
+                    {assets.map((asset) => (
+                      <option key={asset._id} value={asset._id}>
+                        {asset.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -399,8 +422,11 @@ function DesignAset() {
                     className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
                   >
                     <option>Pilih vendor</option>
-                    <option value="Vendor1">Vendor 1</option>
-                    <option value="Vendor2">Vendor 2</option>
+                    {vendors.map((vendor) => (
+                      <option key={vendor._id} value={vendor._id}>
+                        {vendor.nama_vendor}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -421,10 +447,7 @@ function DesignAset() {
             </CardInput>
 
             <div className="flex justify-end mt-4">
-            <Button
-            label="Simpan"
-            onClick={() => {}}
-          />
+              <Button label="Simpan" onClick={handleSubmit} />
             </div>
           </form>
         </div>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSnackbar } from "notistack";
 import axios from "axios";
 import TitleCard from "../../components/Cards/TitleCard";
@@ -6,6 +6,12 @@ import CardInput from "../../components/Cards/CardInput";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Button from "../../components/Button";
+import BASE_URL_API from "../../config";
+import { fetchData, postData, updateData, deleteData } from "../../utils/utils";
+
+const API_URL = `${BASE_URL_API}api/v1/manage-aset/rencana`;
+const API_URL_ASET = `${BASE_URL_API}api/v1/manage-aset/aset`;
+const VENDOR_API_URL = `${BASE_URL_API}api/v1/manage-aset/vendor`;
 
 function TambahAset() {
   const { enqueueSnackbar } = useSnackbar();
@@ -21,6 +27,33 @@ function TambahAset() {
     vendorPengelola: "",
     infoVendor: "",
   });
+  const [asetList, setAsetList] = useState([]);
+  const [vendorList, setVendorList] = useState([]);
+
+  useEffect(() => {
+    fetchAset();
+    fetchVendor();
+  }, []);
+
+  const fetchAset = async () => {
+    try {
+      const response = await fetchData(API_URL_ASET);
+      setAsetList(response.data);
+    } catch (error) {
+      console.error("Error fetching aset data:", error);
+      enqueueSnackbar("Gagal mengambil data aset!", { variant: "error" });
+    }
+  };
+
+  const fetchVendor = async () => {
+    try {
+      const response = await fetchData(VENDOR_API_URL);
+      setVendorList(response.data);
+    } catch (error) {
+      console.error("Error fetching vendor data:", error);
+      enqueueSnackbar("Gagal mengambil data vendor!", { variant: "error" });
+    }
+  };
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
@@ -29,8 +62,18 @@ function TambahAset() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    const requestData = {
+      AsetID: formData.namaAset,
+      VendorID: formData.vendorPengelola,
+      KondisiAset: formData.kondisiAset,
+      TglPerencanaan: formData.tanggalRencanaPemeliharaan.toISOString().split('T')[0],
+      StatusAset: formData.statusPerencanaan,
+      UsiaAset: formData.usiaAsetSaatIni,
+      MaksUsiaAset: formData.maksimalUsiaAset,
+      deskripsi: formData.deskripsiKerusakan,
+    };
     try {
-      const response = await axios.post("URL_API_POST", formData);
+      const response = await postData(API_URL, requestData);
       enqueueSnackbar("Data berhasil disimpan!", { variant: "success" });
     } catch (error) {
       console.error("Error posting data:", error);
@@ -59,9 +102,12 @@ function TambahAset() {
                 onChange={handleInputChange}
                 className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
               >
-                <option>Pilih Aset Rencana pemeliharaan</option>
-                <option value="Aset1">Aset 1</option>
-                <option value="Aset2">Aset 2</option>
+                <option value="">Pilih Aset Rencana pemeliharaan</option>
+                {asetList.map((aset) => (
+                  <option key={aset._id} value={aset._id}>
+                    {aset.nama_aset}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -75,7 +121,7 @@ function TambahAset() {
                 onChange={handleInputChange}
                 className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
               >
-                <option>Pilih jenis kondisi aset</option>
+                <option value="">Pilih jenis kondisi aset</option>
                 <option value="Baik">Baik</option>
                 <option value="Rusak">Rusak</option>
               </select>
@@ -165,7 +211,7 @@ function TambahAset() {
                 onChange={handleInputChange}
                 className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
               >
-                <option>Pilih status perencanaan</option>
+                <option value="">Pilih status perencanaan</option>
                 <option value="direncanakan">Direncanakan</option>
                 <option value="dilaksanakan">Dilaksanakan</option>
                 <option value="selesai">Selesai</option>
@@ -188,9 +234,12 @@ function TambahAset() {
                 onChange={handleInputChange}
                 className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
               >
-                <option>Pilih vendor</option>
-                <option value="Vendor1">Vendor 1</option>
-                <option value="Vendor2">Vendor 2</option>
+                <option value="">Pilih vendor</option>
+                {vendorList.map((vendor) => (
+                  <option key={vendor._id} value={vendor._id}>
+                    {vendor.nama_vendor}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -211,10 +260,7 @@ function TambahAset() {
         </CardInput>
 
         <div className="flex justify-end mt-4">
-        <Button
-            label="Simpan"
-            onClick={() => {}}
-          />
+          <Button label="Simpan" type="submit" />
         </div>
       </form>
     </TitleCard>
