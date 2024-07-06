@@ -53,7 +53,8 @@ function DesignAset() {
     try {
       const response = await fetchData(API_URL);
       const result = response.data;
-      setAssets(result);
+      // Set assets with the most recent data first
+      setAssets(result.reverse());
       setTotalPages(Math.ceil(result.length / ITEMS_PER_PAGE));
     } catch (error) {
       console.error("Fetching error:", error.message);
@@ -132,7 +133,10 @@ function DesignAset() {
     try {
       const response = await deleteData(`${API_URL}/${modal.id}`);
       if (response) {
-        setAssets(assets.filter((asset) => asset._id !== modal.id));
+        // Remove the deleted asset and maintain order
+        setAssets((prevAssets) =>
+          prevAssets.filter((asset) => asset._id !== modal.id)
+        );
         enqueueSnackbar("Aset berhasil dihapus.", { variant: "success" });
       } else {
         enqueueSnackbar("Gagal menghapus aset.", { variant: "error" });
@@ -155,8 +159,18 @@ function DesignAset() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await updateData(`${API_URL}/${editFormData._id}`, editFormData);
-      fetchAssets();
+      const response = await updateData(
+        `${API_URL}/${editFormData._id}`,
+        editFormData
+      );
+      const updatedAsset = response.data; // Assuming the updated asset is returned in response.data
+
+      // Prepend the updated asset to the existing assets
+      setAssets((prevAssets) => [
+        updatedAsset,
+        ...prevAssets.filter((asset) => asset._id !== updatedAsset._id),
+      ]);
+
       enqueueSnackbar("Aset berhasil diperbarui.", { variant: "success" });
       closeEditModal();
     } catch (error) {
@@ -320,7 +334,10 @@ function DesignAset() {
             <CardInput title="Detail Aset" className="mt-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="usiaAsetSaatIni" className="block font-medium">
+                  <label
+                    htmlFor="usiaAsetSaatIni"
+                    className="block font-medium"
+                  >
                     Usia Aset Saat Ini *
                   </label>
                   <input
@@ -334,7 +351,10 @@ function DesignAset() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="maksimalUsiaAset" className="block font-medium">
+                  <label
+                    htmlFor="maksimalUsiaAset"
+                    className="block font-medium"
+                  >
                     Maksimal Usia Aset *
                   </label>
                   <input
@@ -362,7 +382,10 @@ function DesignAset() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="deskripsiKerusakan" className="block font-medium">
+                  <label
+                    htmlFor="deskripsiKerusakan"
+                    className="block font-medium"
+                  >
                     Deskripsi Kerusakan
                   </label>
                   <input
@@ -376,19 +399,27 @@ function DesignAset() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="tanggalRencanaPemeliharaan" className="block font-medium">
+                  <label
+                    htmlFor="tanggalRencanaPemeliharaan"
+                    className="block font-medium"
+                  >
                     Tanggal Rencana Pemeliharaan *
                   </label>
                   <DatePicker
                     selected={editFormData.tanggalRencanaPemeliharaan}
-                    onChange={(date) => handleDateChange('tanggalRencanaPemeliharaan', date)}
+                    onChange={(date) =>
+                      handleDateChange("tanggalRencanaPemeliharaan", date)
+                    }
                     className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
                     dateFormat="MMMM d, yyyy"
                     wrapperClassName="date-picker"
                   />
                 </div>
                 <div>
-                  <label htmlFor="statusPerencanaan" className="block font-medium">
+                  <label
+                    htmlFor="statusPerencanaan"
+                    className="block font-medium"
+                  >
                     Status Perencanaan *
                   </label>
                   <select
@@ -411,7 +442,10 @@ function DesignAset() {
             <CardInput title="Informasi Vendor" className="mt-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="vendorPengelola" className="block font-medium">
+                  <label
+                    htmlFor="vendorPengelola"
+                    className="block font-medium"
+                  >
                     Vendor Pengelola *
                   </label>
                   <select
