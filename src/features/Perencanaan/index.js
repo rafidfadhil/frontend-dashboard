@@ -3,7 +3,7 @@ import axios from "axios";
 import moment from "moment";
 import { useSnackbar } from "notistack";
 import TitleCard from "../../components/Cards/TitleCard";
-import CardInput from "../../components/Cards/CardInput"; // Pastikan Anda mengimpor komponen CardInput
+import CardInput from "../../components/Cards/CardInput";
 import TrashIcon from "@heroicons/react/24/outline/TrashIcon";
 import ConfirmDialog from "../../components/Dialog/ConfirmDialog";
 import PencilIcon from "@heroicons/react/24/outline/PencilIcon";
@@ -14,6 +14,7 @@ import BASE_URL_API from "../../config";
 import { fetchData, postData, updateData, deleteData } from "../../utils/utils";
 
 const API_URL = `${BASE_URL_API}api/v1/manage-aset/rencana`;
+const ASET_API_URL = `${BASE_URL_API}api/v1/manage-aset/aset`;
 const VENDOR_API_URL = `${BASE_URL_API}api/v1/manage-aset/vendor`;
 const ITEMS_PER_PAGE = 10;
 
@@ -30,7 +31,7 @@ function DesignAset() {
   });
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({
-    namaAset: "",
+    nama_aset: "",
     kondisiAset: "",
     usiaAsetSaatIni: "",
     maksimalUsiaAset: "",
@@ -45,22 +46,9 @@ function DesignAset() {
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    fetchAssets();
     fetchVendors();
+    fetchAssets();
   }, [searchQuery]);
-
-  const fetchAssets = async () => {
-    try {
-      const response = await fetchData(API_URL);
-      const result = response.data;
-      // Set assets with the most recent data first
-      setAssets(result.reverse());
-      setTotalPages(Math.ceil(result.length / ITEMS_PER_PAGE));
-    } catch (error) {
-      console.error("Fetching error:", error.message);
-      loadDummyData();
-    }
-  };
 
   const fetchVendors = async () => {
     try {
@@ -71,25 +59,41 @@ function DesignAset() {
     }
   };
 
+  const fetchAssets = async () => {
+    try {
+      const response = await fetchData(API_URL);
+      const result = response.data.map((item) => ({
+        ...item,
+        nama_vendor: item.vendor?.nama_vendor,
+        nama_aset: item.aset?.nama_aset,
+      }));
+      setAssets(result.reverse());
+      setTotalPages(Math.ceil(result.length / ITEMS_PER_PAGE));
+    } catch (error) {
+      console.error("Fetching error:", error.message);
+      loadDummyData();
+    }
+  };
+
   const loadDummyData = () => {
     const dummyAssets = [
       {
-        id: 1,
+        _id: 1,
         name: "Laptop HP",
-        dateEntered: "2023-05-01",
-        vendorName: "HP Inc.",
-        condition: "Baik",
-        age: 2,
-        status: "Aktif",
+        tgl_perencanaan: "2023-05-01",
+        vendor_id: "1",
+        kondisi_aset: "Baik",
+        usia_aset: "2 Bulan",
+        status_aset: "Aktif",
       },
       {
-        id: 2,
+        _id: 2,
         name: "Printer Epson",
-        dateEntered: "2023-04-15",
-        vendorName: "Epson",
-        condition: "Perlu Perbaikan",
-        age: 4,
-        status: "Non-Aktif",
+        tgl_perencanaan: "2023-04-15",
+        vendor_id: "2",
+        kondisi_aset: "Perlu Perbaikan",
+        usia_aset: "4 Bulan",
+        status_aset: "Non-Aktif",
       },
     ];
     setAssets(dummyAssets);
@@ -107,16 +111,16 @@ function DesignAset() {
 
   const handleEditAsset = (asset) => {
     setEditFormData({
-      namaAset: asset.name,
-      kondisiAset: asset.condition,
-      usiaAsetSaatIni: asset.age,
-      maksimalUsiaAset: "", // Sesuaikan dengan data yang ada
-      tahunProduksi: "", // Sesuaikan dengan data yang ada
-      deskripsiKerusakan: "", // Sesuaikan dengan data yang ada
-      tanggalRencanaPemeliharaan: new Date(asset.dateEntered),
-      statusPerencanaan: asset.status,
-      vendorPengelola: asset.vendorName,
-      infoVendor: "", // Sesuaikan dengan data yang ada
+      namaAset: asset.nama_aset,
+      kondisiAset: asset.kondisi_aset,
+      usiaAsetSaatIni: asset.usia_aset,
+      maksimalUsiaAset: asset.maks_usia_aset,
+      tahunProduksi: "",
+      deskripsiKerusakan: asset.deskripsi,
+      tanggalRencanaPemeliharaan: new Date(asset.tgl_perencanaan),
+      statusPerencanaan: asset.status_aset,
+      vendorPengelola: asset.vendor_id,
+      infoVendor: asset.vendor?.telp_vendor,
     });
     setIsEditModalOpen(true);
   };
@@ -133,7 +137,6 @@ function DesignAset() {
     try {
       const response = await deleteData(`${API_URL}/${modal.id}`);
       if (response) {
-        // Remove the deleted asset and maintain order
         setAssets((prevAssets) =>
           prevAssets.filter((asset) => asset._id !== modal.id)
         );
@@ -163,9 +166,8 @@ function DesignAset() {
         `${API_URL}/${editFormData._id}`,
         editFormData
       );
-      const updatedAsset = response.data; // Assuming the updated asset is returned in response.data
+      const updatedAsset = response.data;
 
-      // Prepend the updated asset to the existing assets
       setAssets((prevAssets) => [
         updatedAsset,
         ...prevAssets.filter((asset) => asset._id !== updatedAsset._id),
@@ -227,9 +229,9 @@ function DesignAset() {
             <tbody>
               {paginatedAssets.map((asset) => (
                 <tr key={asset._id}>
-                  <td>{asset.name}</td>
+                  <td>{asset.nama_aset}</td>
                   <td>{moment(asset.tgl_perencanaan).format("DD MMM YYYY")}</td>
-                  <td>{asset.vendorName}</td>
+                  <td>{asset.nama_vendor}</td>
                   <td>{asset.kondisi_aset}</td>
                   <td>{asset.usia_aset}</td>
                   <td>{asset.status_aset}</td>
@@ -289,7 +291,6 @@ function DesignAset() {
           onClick={(e) => e.stopPropagation()}
         >
           <form onSubmit={handleSubmit}>
-            {/* Bagian Identitas Aset */}
             <CardInput title="Identitas Aset">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -306,7 +307,7 @@ function DesignAset() {
                     <option>Pilih Aset Rencana pemeliharaan</option>
                     {assets.map((asset) => (
                       <option key={asset._id} value={asset._id}>
-                        {asset.name}
+                        {asset.nama_aset}
                       </option>
                     ))}
                   </select>
@@ -330,7 +331,6 @@ function DesignAset() {
               </div>
             </CardInput>
 
-            {/* Bagian Detail Aset */}
             <CardInput title="Detail Aset" className="mt-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -430,15 +430,14 @@ function DesignAset() {
                     className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
                   >
                     <option>Pilih status perencanaan</option>
-                    <option value="direncanakan">Direncanakan</option>
-                    <option value="dilaksanakan">Dilaksanakan</option>
-                    <option value="selesai">Selesai</option>
+                    <option value="Disetujui">Disetujui</option>
+                    <option value="Dalam Proses">Dalam Proses</option>
+                    <option value="Tidak Diperbaiki">Tidak Diperbaiki</option>
                   </select>
                 </div>
               </div>
             </CardInput>
 
-            {/* Bagian Informasi Vendor */}
             <CardInput title="Informasi Vendor" className="mt-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>

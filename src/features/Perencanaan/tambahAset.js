@@ -21,7 +21,7 @@ function TambahAset() {
     usiaAsetSaatIni: "",
     maksimalUsiaAset: "",
     tahunProduksi: "",
-    tanggalRencanaPemeliharaan: new Date(),
+    tanggalRencanaPemeliharaan: null,
     deskripsiKerusakan: "",
     statusPerencanaan: "",
     vendorPengelola: "",
@@ -38,7 +38,10 @@ function TambahAset() {
   const fetchAset = async () => {
     try {
       const response = await fetchData(API_URL_ASET);
-      setAsetList(response.data);
+      const sortedData = response.data.sort(
+        (a, b) => new Date(b.aset_masuk) - new Date(a.aset_masuk)
+      );
+      setAsetList(sortedData);
     } catch (error) {
       console.error("Error fetching aset data:", error);
       enqueueSnackbar("Gagal mengambil data aset!", { variant: "error" });
@@ -48,7 +51,10 @@ function TambahAset() {
   const fetchVendor = async () => {
     try {
       const response = await fetchData(VENDOR_API_URL);
-      setVendorList(response.data);
+      const sortedData = response.data.sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+      );
+      setVendorList(sortedData);
     } catch (error) {
       console.error("Error fetching vendor data:", error);
       enqueueSnackbar("Gagal mengambil data vendor!", { variant: "error" });
@@ -60,29 +66,63 @@ function TambahAset() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleAsetChange = (event) => {
+    const selectedAset = asetList.find(
+      (aset) => aset._id === event.target.value
+    );
+    if (selectedAset) {
+      setFormData((prev) => ({
+        ...prev,
+        namaAset: selectedAset._id,
+        tahunProduksi: selectedAset.tahun_produksi,
+        vendorPengelola: selectedAset.vendor._id,
+        infoVendor: selectedAset.vendor.telp_vendor,
+      }));
+    }
+  };
+
+  const handleDateChange = (date) => {
+    setFormData((prev) => ({ ...prev, tanggalRencanaPemeliharaan: date }));
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     const requestData = {
       AsetID: formData.namaAset,
       VendorID: formData.vendorPengelola,
       KondisiAset: formData.kondisiAset,
-      TglPerencanaan: formData.tanggalRencanaPemeliharaan.toISOString().split('T')[0],
+      TglPerencanaan: formData.tanggalRencanaPemeliharaan
+        ? formData.tanggalRencanaPemeliharaan.toISOString().split("T")[0]
+        : null,
       StatusAset: formData.statusPerencanaan,
       UsiaAset: formData.usiaAsetSaatIni,
       MaksUsiaAset: formData.maksimalUsiaAset,
       deskripsi: formData.deskripsiKerusakan,
     };
+
     try {
+      console.log("Sending request data:", requestData);
       const response = await postData(API_URL, requestData);
+      console.log("API response:", response);
       enqueueSnackbar("Data berhasil disimpan!", { variant: "success" });
+
+      // Refresh the vendor list and add the new vendor to the top
+      const newVendor = vendorList.find(
+        (vendor) => vendor._id === formData.vendorPengelola
+      );
+      setVendorList((prevVendorList) => {
+        const updatedVendorList = prevVendorList.filter(
+          (vendor) => vendor._id !== newVendor._id
+        );
+        return [newVendor, ...updatedVendorList];
+      });
+
+      // Refresh the asset list to show the new asset at the top
+      fetchAset();
     } catch (error) {
       console.error("Error posting data:", error);
       enqueueSnackbar("Gagal menyimpan data!", { variant: "error" });
     }
-  };
-
-  const handleDateChange = (name, date) => {
-    setFormData((prev) => ({ ...prev, [name]: date }));
   };
 
   return (
@@ -99,7 +139,7 @@ function TambahAset() {
                 id="namaAset"
                 name="namaAset"
                 value={formData.namaAset}
-                onChange={handleInputChange}
+                onChange={handleAsetChange}
                 className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
               >
                 <option value="">Pilih Aset Rencana pemeliharaan</option>
@@ -189,15 +229,19 @@ function TambahAset() {
               />
             </div>
             <div>
-              <label htmlFor="tanggalRencanaPemeliharaan" className="block font-medium">
+              <label
+                htmlFor="tanggalRencanaPemeliharaan"
+                className="block font-medium"
+              >
                 Tanggal Rencana Pemeliharaan *
               </label>
               <DatePicker
                 selected={formData.tanggalRencanaPemeliharaan}
-                onChange={(date) => handleDateChange('tanggalRencanaPemeliharaan', date)}
+                onChange={handleDateChange}
                 className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
                 dateFormat="MMMM d, yyyy"
                 wrapperClassName="date-picker"
+                placeholderText="Pilih rencana tanggal Pemeliharaan"
               />
             </div>
             <div>
@@ -212,9 +256,9 @@ function TambahAset() {
                 className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
               >
                 <option value="">Pilih status perencanaan</option>
-                <option value="direncanakan">Direncanakan</option>
-                <option value="dilaksanakan">Dilaksanakan</option>
-                <option value="selesai">Selesai</option>
+                <option value="Disetujui">Disetujui</option>
+                <option value="Dalam Proses">Dalam Proses</option>
+                <option value="Tidak Diperbaiki">Tidak Diperbaiki</option>
               </select>
             </div>
           </div>
