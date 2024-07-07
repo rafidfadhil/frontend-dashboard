@@ -48,7 +48,7 @@ function DesignAset() {
   useEffect(() => {
     fetchVendors();
     fetchAssets();
-  }, [searchQuery]);
+  }, []);
 
   const fetchVendors = async () => {
     try {
@@ -79,7 +79,7 @@ function DesignAset() {
     const dummyAssets = [
       {
         _id: 1,
-        name: "Laptop HP",
+        nama_aset: "Laptop HP",
         tgl_perencanaan: "2023-05-01",
         vendor_id: "1",
         kondisi_aset: "Baik",
@@ -88,7 +88,7 @@ function DesignAset() {
       },
       {
         _id: 2,
-        name: "Printer Epson",
+        nama_aset: "Printer Epson",
         tgl_perencanaan: "2023-04-15",
         vendor_id: "2",
         kondisi_aset: "Perlu Perbaikan",
@@ -111,6 +111,7 @@ function DesignAset() {
 
   const handleEditAsset = (asset) => {
     setEditFormData({
+      _id: asset._id,
       namaAset: asset.nama_aset,
       kondisiAset: asset.kondisi_aset,
       usiaAsetSaatIni: asset.usia_aset,
@@ -196,7 +197,16 @@ function DesignAset() {
     }
   };
 
-  const paginatedAssets = assets.slice(
+  const filteredAssets = assets.filter(
+    (asset) =>
+      asset.nama_aset.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      asset.kondisi_aset.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      asset.usia_aset.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      asset.status_aset.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      asset.nama_vendor.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const paginatedAssets = filteredAssets.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );

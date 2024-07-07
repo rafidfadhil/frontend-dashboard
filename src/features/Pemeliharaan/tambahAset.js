@@ -91,7 +91,7 @@ function TambahAset() {
                 <option value="">Pilih Aset yang akan melakukan pemeliharaan</option>
                 {asetList.map((aset) => (
                   <option key={aset._id} value={aset._id}>
-                    {aset.namaAset}
+                    {aset.nama_aset}
                   </option>
                 ))}
               </select>
