@@ -13,10 +13,14 @@ import BASE_URL_API from "../../config";
 import { fetchData, updateData, deleteData } from "../../utils/utils";
 
 const API_URL = `${BASE_URL_API}api/v1/manage-aset/pelihara`;
+const API_URL_RENCANA = `${BASE_URL_API}api/v1/manage-aset/rencana`;
+const VENDOR_API_URL = `${BASE_URL_API}api/v1/manage-aset/vendor`;
 const ITEMS_PER_PAGE = 10;
 
 function PemeliharaanAset() {
   const [assets, setAssets] = useState([]);
+  const [asetList, setAsetList] = useState([]);
+  const [vendorList, setVendorList] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [modal, setModal] = useState({
@@ -29,11 +33,18 @@ function PemeliharaanAset() {
   const [editFormData, setEditFormData] = useState({
     rencana_id: "",
     kondisi_stlh_perbaikan: "",
+    usiaAsetSaatIni: "",
+    maksimalUsiaAset: "",
+    tahunProduksi: "",
+    tanggalPemeliharaanAset: new Date(),
+    deskripsiKerusakan: "",
     status_pemeliharaan: "",
+    vendorPengelola: "",
+    infoVendor: "",
     penanggung_jawab: "",
     deskripsi: "",
     tgl_dilakukan: new Date(),
-    waktu_pemeliharaan: new Date(),
+    waktu_pemeliharaan: "",
   });
   const { enqueueSnackbar } = useSnackbar();
   const [searchQuery, setSearchQuery] = useState("");
@@ -41,25 +52,45 @@ function PemeliharaanAset() {
 
   useEffect(() => {
     fetchAssets();
-  }, []);
+    fetchAsetList();
+    fetchVendorList();
+  }, [currentPage, searchQuery, filterStatus]);
 
   const fetchAssets = async () => {
     try {
       const response = await fetchData(API_URL);
-      const dataDarurat = response.data_darurat.map((item) => ({
+      const dataDarurat = response.data_darurat ? response.data_darurat.map((item) => ({
         ...item,
         status: "Data Darurat",
-      }));
-      const dataPemeliharaan = response.data_pemeliharaan.map((item) => ({
+      })) : [];
+      const dataPemeliharaan = response.data_pemeliharaan ? response.data_pemeliharaan.map((item) => ({
         ...item,
         status: "Data Pemeliharaan",
-      }));
+      })) : [];
       const allAssets = [...dataDarurat, ...dataPemeliharaan];
       allAssets.sort((a, b) => new Date(b.tgl_dilakukan) - new Date(a.tgl_dilakukan));
       setAssets(allAssets);
       setTotalPages(Math.ceil(allAssets.length / ITEMS_PER_PAGE));
     } catch (error) {
       console.error("Fetching error:", error.message);
+    }
+  };
+
+  const fetchAsetList = async () => {
+    try {
+      const response = await fetchData(API_URL_RENCANA);
+      setAsetList(response.data);
+    } catch (error) {
+      console.error("Error fetching aset list:", error);
+    }
+  };
+
+  const fetchVendorList = async () => {
+    try {
+      const response = await fetchData(VENDOR_API_URL);
+      setVendorList(response.data);
+    } catch (error) {
+      console.error("Error fetching vendor list:", error);
     }
   };
 
@@ -73,16 +104,26 @@ function PemeliharaanAset() {
   };
 
   const handleEditAsset = (asset) => {
-    setEditFormData({
-      rencana_id: asset.rencana_id,
-      kondisi_stlh_perbaikan: asset.kondisi_stlh_perbaikan,
-      status_pemeliharaan: asset.status_pemeliharaan,
-      penanggung_jawab: asset.penanggung_jawab,
-      deskripsi: asset.deskripsi,
-      tgl_dilakukan: moment(asset.tgl_dilakukan, "DD-MM-YYYY").toDate(),
-      waktu_pemeliharaan: moment(asset.waktu_pemeliharaan, "DD-MM-YYYY").toDate(),
-    });
-    setIsEditModalOpen(true);
+    const selectedRencana = asetList.find(aset => aset._id === asset.rencana_id);
+    if (selectedRencana) {
+      setEditFormData({
+        rencana_id: asset.rencana_id,
+        kondisi_stlh_perbaikan: asset.kondisi_stlh_perbaikan,
+        usiaAsetSaatIni: selectedRencana.usia_aset,
+        maksimalUsiaAset: selectedRencana.maks_usia_aset,
+        tahunProduksi: selectedRencana.aset.tahun_produksi,
+        tanggalPemeliharaanAset: new Date(selectedRencana.tgl_perencanaan),
+        deskripsiKerusakan: selectedRencana.deskripsi,
+        status_pemeliharaan: asset.status_pemeliharaan,
+        vendorPengelola: selectedRencana.vendor._id,
+        infoVendor: selectedRencana.vendor.telp_vendor,
+        penanggung_jawab: asset.penanggung_jawab,
+        deskripsi: asset.deskripsi,
+        tgl_dilakukan: moment(asset.tgl_dilakukan, "YYYY-MM-DD").toDate(),
+        waktu_pemeliharaan: asset.waktu_pemeliharaan,
+      });
+      setIsEditModalOpen(true);
+    }
   };
 
   const closeDialog = () => {
@@ -115,14 +156,15 @@ function PemeliharaanAset() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const formattedData = {
+      rencana_id: editFormData.rencana_id,
+      kondisi_stlh_perbaikan: editFormData.kondisi_stlh_perbaikan,
+      status_pemeliharaan: editFormData.status_pemeliharaan,
+      penanggung_jawab: editFormData.penanggung_jawab,
+      deskripsi: editFormData.deskripsi,
+    };
     try {
-      await updateData(`${API_URL}/${editFormData.rencana_id}`, {
-        ...editFormData,
-        tgl_dilakukan: moment(editFormData.tgl_dilakukan).format("DD-MM-YYYY"),
-        waktu_pemeliharaan: moment(editFormData.waktu_pemeliharaan).format(
-          "DD-MM-YYYY"
-        ),
-      });
+      await updateData(`${API_URL}/${editFormData.rencana_id}`, formattedData);
       fetchAssets();
       enqueueSnackbar("Data berhasil diperbarui!", { variant: "success" });
       closeEditModal();
@@ -284,22 +326,27 @@ function PemeliharaanAset() {
                   <label htmlFor="rencana_id" className="block font-medium">
                     Nama Aset *
                   </label>
-                  <input
-                    type="text"
+                  <select
                     id="rencana_id"
                     name="rencana_id"
                     value={editFormData.rencana_id}
                     onChange={handleInputChange}
                     className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
-                    disabled
-                  />
+                    readOnly
+                  >
+                    <option value="">{editFormData.rencana_id}</option>
+                    {asetList &&
+                      asetList.length > 0 &&
+                      asetList.map((aset) => (
+                        <option key={aset._id} value={aset._id}>
+                          {aset.aset.nama_aset}
+                        </option>
+                      ))}
+                  </select>
                 </div>
                 <div>
-                  <label
-                    htmlFor="kondisi_stlh_perbaikan"
-                    className="block font-medium"
-                  >
-                    Kondisi Setelah Perbaikan *
+                  <label htmlFor="kondisi_stlh_perbaikan" className="block font-medium">
+                    Kondisi Aset Setelah Perbaikan *
                   </label>
                   <select
                     id="kondisi_stlh_perbaikan"
@@ -309,10 +356,9 @@ function PemeliharaanAset() {
                     className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
                   >
                     <option value="">Pilih jenis kondisi aset</option>
-                    <option value="can be used">can be used</option>
-                    <option value="Tidak dapat digunakan">
-                      Tidak dapat digunakan
-                    </option>
+                    <option value="can be used">Perbaikan berhasil</option>
+                    <option value="in repair">Dalam Perbaikan</option>
+                    <option value="cannot be repaired">Tidak dapat diperbaiki</option>
                   </select>
                 </div>
               </div>
@@ -321,11 +367,73 @@ function PemeliharaanAset() {
             <CardInput title="Detail Aset" className="mt-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label
-                    htmlFor="status_pemeliharaan"
-                    className="block font-medium"
-                  >
-                    Status Pemeliharaan *
+                  <label htmlFor="usiaAsetSaatIni" className="block font-medium">
+                    Usia Aset Saat Ini *
+                  </label>
+                  <input
+                    type="text"
+                    id="usiaAsetSaatIni"
+                    name="usiaAsetSaatIni"
+                    value={editFormData.usiaAsetSaatIni}
+                    readOnly
+                    className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="maksimalUsiaAset" className="block font-medium">
+                    Maksimal Usia Aset *
+                  </label>
+                  <input
+                    type="text"
+                    id="maksimalUsiaAset"
+                    name="maksimalUsiaAset"
+                    value={editFormData.maksimalUsiaAset}
+                    readOnly
+                    className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="tahunProduksi" className="block font-medium">
+                    Tahun Produksi
+                  </label>
+                  <input
+                    type="text"
+                    id="tahunProduksi"
+                    name="tahunProduksi"
+                    value={editFormData.tahunProduksi}
+                    readOnly
+                    className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="deskripsiKerusakan" className="block font-medium">
+                    Deskripsi Kerusakan
+                  </label>
+                  <input
+                    type="text"
+                    id="deskripsiKerusakan"
+                    name="deskripsiKerusakan"
+                    value={editFormData.deskripsiKerusakan}
+                    readOnly
+                    className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="tanggalPemeliharaanAset" className="block font-medium">
+                    Tanggal Rencana Pemeliharaan *
+                  </label>
+                  <DatePicker
+                    selected={editFormData.tanggalPemeliharaanAset}
+                    onChange={(date) => handleDateChange(date, "tanggalPemeliharaanAset")}
+                    className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
+                    wrapperClassName="date-picker"
+                    dateFormat="MMMM d, yyyy"
+                    readOnly
+                  />
+                </div>
+                <div>
+                  <label htmlFor="status_pemeliharaan" className="block font-medium">
+                    Status Pemeliharaan
                   </label>
                   <select
                     id="status_pemeliharaan"
@@ -335,19 +443,58 @@ function PemeliharaanAset() {
                     className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
                   >
                     <option value="">Pilih status pemeliharaan</option>
-                    <option value="Accepted">Accepted</option>
-                    <option value="Perbaikan berhasil">
-                      Perbaikan berhasil
-                    </option>
-                    <option value="Perbaikan gagal">Perbaikan gagal</option>
+                    <option value="Accepted">Direncanakan</option>
+                    <option value="In Progress">Dilaksanakan</option>
+                    <option value="Completed">Selesai</option>
+                  </select>
+                </div>
+              </div>
+            </CardInput>
+
+            <CardInput title="Informasi Vendor">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="vendorPengelola" className="block font-medium">
+                    Vendor Pengelola *
+                  </label>
+                  <select
+                    id="vendorPengelola"
+                    name="vendorPengelola"
+                    value={editFormData.vendorPengelola}
+                    className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
+                    readOnly
+                  >
+                    <option value="">{editFormData.vendorPengelola}</option>
+                    {vendorList &&
+                      vendorList.length > 0 &&
+                      vendorList.map((vendor) => (
+                        <option key={vendor._id} value={vendor._id}>
+                          {vendor.nama_vendor}
+                        </option>
+                      ))}
                   </select>
                 </div>
                 <div>
-                  <label
-                    htmlFor="penanggung_jawab"
-                    className="block font-medium"
-                  >
-                    Penanggung Jawab *
+                  <label htmlFor="infoVendor" className="block font-medium">
+                    Informasi vendor / no telepon
+                  </label>
+                  <input
+                    type="text"
+                    id="infoVendor"
+                    name="infoVendor"
+                    value={editFormData.infoVendor}
+                    readOnly
+                    className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
+                  />
+                </div>
+              </div>
+            </CardInput>
+
+            <CardInput title="Informasi Pemeliharaan">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="penanggung_jawab" className="block font-medium">
+                    Nama Penanggung Jawab
                   </label>
                   <input
                     type="text"
@@ -355,13 +502,13 @@ function PemeliharaanAset() {
                     name="penanggung_jawab"
                     value={editFormData.penanggung_jawab}
                     onChange={handleInputChange}
-                    placeholder="Masukkan nama penanggung jawab"
+                    placeholder="Nama penanggung jawab"
                     className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
                   />
                 </div>
                 <div>
                   <label htmlFor="deskripsi" className="block font-medium">
-                    Deskripsi
+                    Deskripsi Pemeliharaan
                   </label>
                   <input
                     type="text"
@@ -369,37 +516,34 @@ function PemeliharaanAset() {
                     name="deskripsi"
                     value={editFormData.deskripsi}
                     onChange={handleInputChange}
-                    placeholder="Masukkan deskripsi"
+                    placeholder="Masukkan deskripsi pemeliharaan"
                     className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
                   />
                 </div>
                 <div>
                   <label htmlFor="tgl_dilakukan" className="block font-medium">
-                    Tanggal Dilakukan *
+                    Tanggal Pemeliharaan Dilakukan
                   </label>
                   <DatePicker
                     selected={editFormData.tgl_dilakukan}
                     onChange={(date) => handleDateChange(date, "tgl_dilakukan")}
                     className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
-                    wrapperClassName="date-picker"
                     dateFormat="MMMM d, yyyy"
+                    wrapperClassName="date-picker"
                   />
                 </div>
                 <div>
-                  <label
-                    htmlFor="waktu_pemeliharaan"
-                    className="block font-medium"
-                  >
-                    Waktu Pemeliharaan *
+                  <label htmlFor="waktu_pemeliharaan" className="block font-medium">
+                    Perkiraan Waktu Pemeliharaan
                   </label>
-                  <DatePicker
-                    selected={editFormData.waktu_pemeliharaan}
-                    onChange={(date) =>
-                      handleDateChange(date, "waktu_pemeliharaan")
-                    }
+                  <input
+                    type="text"
+                    id="waktu_pemeliharaan"
+                    name="waktu_pemeliharaan"
+                    value={editFormData.waktu_pemeliharaan}
+                    onChange={handleInputChange}
+                    placeholder="Masukkan perkiraan waktu pemeliharaan"
                     className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
-                    wrapperClassName="date-picker"
-                    dateFormat="MMMM d, yyyy"
                   />
                 </div>
               </div>
