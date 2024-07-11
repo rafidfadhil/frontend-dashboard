@@ -7,7 +7,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Button from "../../components/Button";
 import BASE_URL_API from "../../config";
-import { fetchData, postData, updateData, deleteData } from "../../utils/utils";
+import { fetchData, postData } from "../../utils/utils";
 
 const API_URL = `${BASE_URL_API}api/v1/manage-aset/rencana`;
 const API_URL_ASET = `${BASE_URL_API}api/v1/manage-aset/aset`;
@@ -29,10 +29,12 @@ function TambahAset() {
   });
   const [asetList, setAsetList] = useState([]);
   const [vendorList, setVendorList] = useState([]);
+  const [planningData, setPlanningData] = useState([]);
 
   useEffect(() => {
     fetchAset();
     fetchVendor();
+    fetchPlanningData();
   }, []);
 
   const fetchAset = async () => {
@@ -58,6 +60,18 @@ function TambahAset() {
     } catch (error) {
       console.error("Error fetching vendor data:", error);
       enqueueSnackbar("Gagal mengambil data vendor!", { variant: "error" });
+    }
+  };
+
+  const fetchPlanningData = async () => {
+    try {
+      const response = await fetchData(API_URL);
+      setPlanningData(response.data);
+    } catch (error) {
+      console.error("Error fetching planning data:", error);
+      enqueueSnackbar("Gagal mengambil data perencanaan!", {
+        variant: "error",
+      });
     }
   };
 
@@ -87,16 +101,28 @@ function TambahAset() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+
+    const existingData = planningData.find(
+      (data) => data.aset_id === formData.namaAset
+    );
+
+    if (existingData) {
+      enqueueSnackbar("Data sudah ada dalam perencanaan!", {
+        variant: "warning",
+      });
+      return;
+    }
+
     const requestData = {
-      AsetID: formData.namaAset,
-      VendorID: formData.vendorPengelola,
-      KondisiAset: formData.kondisiAset,
-      TglPerencanaan: formData.tanggalRencanaPemeliharaan
+      aset_id: formData.namaAset,
+      vendor_id: formData.vendorPengelola,
+      kondisi_aset: formData.kondisiAset,
+      tgl_perencanaan: formData.tanggalRencanaPemeliharaan
         ? formData.tanggalRencanaPemeliharaan.toISOString().split("T")[0]
         : null,
-      StatusAset: formData.statusPerencanaan,
-      UsiaAset: formData.usiaAsetSaatIni,
-      MaksUsiaAset: formData.maksimalUsiaAset,
+      status_aset: formData.statusPerencanaan,
+      usia_aset: formData.usiaAsetSaatIni,
+      maks_usia_aset: formData.maksimalUsiaAset,
       deskripsi: formData.deskripsiKerusakan,
     };
 
@@ -106,7 +132,6 @@ function TambahAset() {
       console.log("API response:", response);
       enqueueSnackbar("Data berhasil disimpan!", { variant: "success" });
 
-      // Refresh the vendor list and add the new vendor to the top
       const newVendor = vendorList.find(
         (vendor) => vendor._id === formData.vendorPengelola
       );
@@ -117,13 +142,18 @@ function TambahAset() {
         return [newVendor, ...updatedVendorList];
       });
 
-      // Refresh the asset list to show the new asset at the top
       fetchAset();
+      fetchPlanningData(); // Refresh planning data
     } catch (error) {
       console.error("Error posting data:", error);
       enqueueSnackbar("Gagal menyimpan data!", { variant: "error" });
     }
   };
+
+  const getInputClassName = (isDisabled) =>
+    `w-full p-2 border rounded text-gray-900 ${
+      isDisabled ? "bg-gray-200 border-gray-400" : "bg-gray-50 border-gray-300"
+    }`;
 
   return (
     <TitleCard title="Rencana Pemeliharaan" topMargin="mt-2">
@@ -211,12 +241,13 @@ function TambahAset() {
                 value={formData.tahunProduksi}
                 onChange={handleInputChange}
                 placeholder="Masukkan tahun produksi"
-                className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
+                className={getInputClassName(!!formData.tahunProduksi)}
+                disabled={!!formData.tahunProduksi}
               />
             </div>
             <div>
               <label htmlFor="deskripsiKerusakan" className="block font-medium">
-                Deskripsi Kerusakan
+                Deskripsi Perencanaan
               </label>
               <input
                 type="text"
@@ -224,7 +255,7 @@ function TambahAset() {
                 name="deskripsiKerusakan"
                 value={formData.deskripsiKerusakan}
                 onChange={handleInputChange}
-                placeholder="Masukkan Deskripsi Kerusakan"
+                placeholder="Masukkan Deskripsi Perencanaan"
                 className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
               />
             </div>
@@ -276,7 +307,8 @@ function TambahAset() {
                 name="vendorPengelola"
                 value={formData.vendorPengelola}
                 onChange={handleInputChange}
-                className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
+                className={getInputClassName(!!formData.vendorPengelola)}
+                disabled={!!formData.vendorPengelola}
               >
                 <option value="">Pilih vendor</option>
                 {vendorList.map((vendor) => (
@@ -297,7 +329,8 @@ function TambahAset() {
                 value={formData.infoVendor}
                 onChange={handleInputChange}
                 placeholder="Masukkan informasi vendor"
-                className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
+                className={getInputClassName(!!formData.infoVendor)}
+                disabled={!!formData.infoVendor}
               />
             </div>
           </div>

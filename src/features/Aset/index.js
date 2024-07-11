@@ -6,12 +6,15 @@ import CardInput from "../../components/Cards/CardInput";
 import TrashIcon from "@heroicons/react/24/outline/TrashIcon";
 import ConfirmDialog from "../../components/Dialog/ConfirmDialog";
 import PencilIcon from "@heroicons/react/24/outline/PencilIcon";
-import { XMarkIcon } from "@heroicons/react/24/outline"; // Make sure this is the correct import
+import EyeIcon from "@heroicons/react/24/outline/EyeIcon";
+import XMarkIcon from "@heroicons/react/24/outline/XMarkIcon";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Button from "../../components/Button";
 import BASE_URL_API from "../../config";
 import { fetchData, postData, updateData, deleteData } from "../../utils/utils";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 
 const API_URL = `${BASE_URL_API}api/v1/manage-aset/aset`;
 const VENDOR_API_URL = `${BASE_URL_API}api/v1/manage-aset/vendor`;
@@ -30,6 +33,8 @@ function DetailAset() {
     id: null,
   });
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({
     _id: "",
     namaAset: "",
@@ -45,11 +50,15 @@ function DetailAset() {
     tanggalGaransiMulai: new Date(),
     tanggalGaransiBerakhir: new Date(),
   });
+  const [viewAssetData, setViewAssetData] = useState(null);
+  const [imageToView, setImageToView] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const { enqueueSnackbar } = useSnackbar();
   const [searchQuery, setSearchQuery] = useState("");
   const [vendor, setVendor] = useState(null);
+
+  console.log(editFormData);
 
   const modalRef = useRef(null);
 
@@ -73,9 +82,26 @@ function DetailAset() {
     };
   }, [isEditModalOpen]);
 
+  useEffect(() => {
+    if (isViewModalOpen) {
+      document.addEventListener("mousedown", handleClickOutsideView);
+    } else {
+      document.removeEventListener("mousedown", handleClickOutsideView);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutsideView);
+    };
+  }, [isViewModalOpen]);
+
   const handleClickOutside = (event) => {
     if (modalRef.current && !modalRef.current.contains(event.target)) {
       closeEditModal();
+    }
+  };
+
+  const handleClickOutsideView = (event) => {
+    if (modalRef.current && !modalRef.current.contains(event.target)) {
+      closeViewModal();
     }
   };
 
@@ -85,7 +111,7 @@ function DetailAset() {
       if (result.status === 200) {
         const assetsWithIndex = result.data.map((asset, index) => ({
           ...asset,
-          index: index, // Add index to each asset
+          index: index,
         }));
 
         const sortedAssets = assetsWithIndex.sort((a, b) => b.index - a.index);
@@ -147,7 +173,6 @@ function DetailAset() {
     const vendorData = await getVendor(asset.vendor_id);
 
     setEditFormData({
-      ...editFormData,
       _id: asset._id,
       namaAset: asset.nama_aset,
       kategoriAset: asset.kategori_aset,
@@ -159,7 +184,7 @@ function DetailAset() {
       jumlahAsetMasuk: asset.jumlah_aset || "",
       infoVendor: vendorData ? vendorData.telp_vendor : "",
       tanggalAsetMasuk: parseDate(asset.aset_masuk),
-      tanggalGaransiMulai: parseDate(asset.garansi_dimulai),
+      tanggalGaransiDimulai: parseDate(asset.garansi_dimulai),
       tanggalGaransiBerakhir: parseDate(asset.garansi_berakhir),
     });
 
@@ -167,6 +192,11 @@ function DetailAset() {
       asset.gambar_aset.image_url || "https://via.placeholder.com/150"
     );
     setIsEditModalOpen(true);
+  };
+
+  const handleViewAsset = (asset) => {
+    setViewAssetData(asset);
+    setIsViewModalOpen(true);
   };
 
   const handleVendorChange = async (e) => {
@@ -190,6 +220,14 @@ function DetailAset() {
 
   const closeEditModal = () => {
     setIsEditModalOpen(false);
+  };
+
+  const closeViewModal = () => {
+    setIsViewModalOpen(false);
+  };
+
+  const closeImageModal = () => {
+    setIsImageModalOpen(false);
   };
 
   const confirmDelete = async () => {
@@ -248,7 +286,7 @@ function DetailAset() {
     );
     dataToUpdate.append(
       "garansidimulai",
-      moment(editFormData.tanggalGaransiMulai).format("YYYY-MM-DD")
+      moment(editFormData.tanggalGaransiDimulai).format("YYYY-MM-DD")
     );
     dataToUpdate.append(
       "GaransiBerakhir",
@@ -320,6 +358,71 @@ function DetailAset() {
     currentPage * ITEMS_PER_PAGE
   );
 
+  const handlePrint = () => {
+    const doc = new jsPDF();
+    const columns = [
+      { header: "Foto Aset", dataKey: "gambar_aset" },
+      { header: "Nama Aset", dataKey: "namaAset" },
+      { header: "Tgl Aset Masuk", dataKey: "tglAsetMasuk" },
+      { header: "Masa Garansi Dimulai", dataKey: "masaGaransiDimulai" },
+      { header: "Masa Garansi Berakhir", dataKey: "masaGaransiBerakhir" },
+      { header: "Nama Vendor", dataKey: "namaVendor" },
+      { header: "Kategori", dataKey: "kategori" },
+      { header: "Jumlah Aset", dataKey: "jumlahAset" },
+    ];
+
+    const rows = paginatedAssets.map((asset) => ({
+      fotoAset: {
+        data: asset.gambar_aset.image_url,
+        type: "image",
+        width: 20,
+        height: 20,
+      },
+      namaAset: asset.nama_aset,
+      tglAsetMasuk: moment(asset.aset_masuk).format("DD MMM YYYY"),
+      masaGaransiDimulai: moment(asset.garansi_dimulai).format("DD MMM YYYY"),
+      masaGaransiBerakhir: moment(asset.garansi_berakhir).format("DD MMM YYYY"),
+      namaVendor: getVendorName(asset.vendor_id),
+      kategori: asset.kategori_aset,
+      jumlahAset: asset.jumlah_aset,
+    }));
+
+    doc.autoTable({
+      head: [columns.map((col) => col.header)],
+      body: rows.map((row) =>
+        columns.map((col) =>
+          col.dataKey === "fotoAset"
+            ? {
+                ...row[col.dataKey],
+                cellWidth: "wrap",
+                minCellHeight: 20,
+              }
+            : row[col.dataKey]
+        )
+      ),
+      didDrawCell: (data) => {
+        if (
+          data.column.dataKey === "fotoAset" &&
+          data.cell.section === "body"
+        ) {
+          const { data: imageUrl, width, height } = data.cell.raw;
+          if (imageUrl) {
+            doc.addImage(
+              imageUrl,
+              "JPEG",
+              data.cell.x + 2,
+              data.cell.y + 2,
+              width,
+              height
+            );
+          }
+        }
+      },
+    });
+
+    doc.save("assets.pdf");
+  };
+
   return (
     <>
       <TitleCard title="Detail Aset" topMargin="mt-2">
@@ -331,9 +434,10 @@ function DetailAset() {
             value={searchQuery}
             onChange={handleSearchChange}
           />
+          <Button label="Cetak Data" onClick={handlePrint} />
         </div>
         <div className="overflow-x-auto w-full">
-          <table className="table w-full">
+          <table className="table w-full" id="asset-table">
             <thead>
               <tr>
                 <th>Foto Aset</th>
@@ -342,8 +446,8 @@ function DetailAset() {
                 <th>Masa Garansi Dimulai</th>
                 <th>Masa Garansi Berakhir</th>
                 <th>Nama Vendor</th>
-                <th>Kategori</th>
-                <th className="text-center">Jumlah Aset</th>
+                <th className="whitespace-nowrap">Kategori</th>
+                <th className="whitespace-nowrap text-center">Jumlah Aset</th>
                 <th>Aksi</th>
               </tr>
             </thead>
@@ -370,20 +474,28 @@ function DetailAset() {
                     {moment(asset.garansi_berakhir).format("DD MMM YYYY")}
                   </td>
                   <td>{getVendorName(asset.vendor_id)}</td>
-                  <td>{asset.kategori_aset}</td>
-                  <td className="text-center">{asset.jumlah_aset}</td>
+                  <td className="whitespace-nowrap">{asset.kategori_aset}</td>
+                  <td className="whitespace-nowrap text-center">
+                    {asset.jumlah_aset}
+                  </td>
                   <td className="flex justify-around items-center">
                     <button
-                      className="btn btn-square btn-ghost"
+                      className="btn btn-square btn-ghost text-red-500"
                       onClick={() => handleDeleteAsset(asset._id)}
                     >
                       <TrashIcon className="w-5 h-5" />
                     </button>
                     <button
-                      className="btn btn-square btn-ghost"
+                      className="btn btn-square btn-ghost text-yellow-500"
                       onClick={() => handleEditAsset(asset)}
                     >
                       <PencilIcon className="w-5 h-5" />
+                    </button>
+                    <button
+                      className="btn btn-square btn-ghost text-black"
+                      onClick={() => handleViewAsset(asset)}
+                    >
+                      <EyeIcon className="w-5 h-5" />
                     </button>
                   </td>
                 </tr>
@@ -461,8 +573,8 @@ function DetailAset() {
                       className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
                     >
                       <option value="">Pilih jenis kategori aset</option>
-                      <option value="Asset Baru">Asset Baru</option>
-                      <option value="Asset Lama">Asset Lama</option>
+                      <option value="Aset Baru">Aset Baru</option>
+                      <option value="Aset Lama">Aset Lama</option>
                     </select>
                   </div>
                 </div>
@@ -540,7 +652,7 @@ function DetailAset() {
                       Masa Garansi Dimulai
                     </label>
                     <DatePicker
-                      selected={editFormData.tanggalGaransiMulai}
+                      selected={editFormData.tanggalGaransiDimulai}
                       onChange={(date) =>
                         handleDateChange(date, "tanggalGaransiMulai")
                       }
@@ -701,6 +813,128 @@ function DetailAset() {
                 <Button label="Simpan" onClick={handleSubmit} />
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {isViewModalOpen && viewAssetData && (
+        <div className="modal modal-open" onClick={closeViewModal}>
+          <button
+            className="absolute top-4 right-4 p-2 bg-white rounded-full shadow-lg"
+            onClick={closeViewModal}
+          >
+            <XMarkIcon className="w-6 h-6 text-gray-500" />
+          </button>
+          <div
+            ref={modalRef}
+            className="modal-box relative max-w-4xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <CardInput title="Identitas Aset">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-medium">Nama Aset</label>
+                  <p>{viewAssetData.nama_aset}</p>
+                </div>
+                <div>
+                  <label className="block font-medium">Kategori Aset</label>
+                  <p>{viewAssetData.kategori_aset}</p>
+                </div>
+              </div>
+            </CardInput>
+
+            <CardInput title="Detail Aset" className="mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-medium">Merek Aset</label>
+                  <p>{viewAssetData.merek_aset}</p>
+                </div>
+                <div>
+                  <label className="block font-medium">
+                    No. Seri / Kode Produksi
+                  </label>
+                  <p>{viewAssetData.kode_produksi}</p>
+                </div>
+                <div>
+                  <label className="block font-medium">Tahun Produksi</label>
+                  <p>{viewAssetData.tahun_produksi}</p>
+                </div>
+                <div>
+                  <label className="block font-medium">Deskripsi Aset</label>
+                  <p>{viewAssetData.deskripsi_aset}</p>
+                </div>
+                <div>
+                  <label className="block font-medium">
+                    Masa Garansi Dimulai
+                  </label>
+                  <p>{moment(viewAssetData.garansi_dimulai).format("LL")}</p>
+                </div>
+                <div>
+                  <label className="block font-medium">
+                    Masa Garansi Berakhir
+                  </label>
+                  <p>{moment(viewAssetData.garansi_berakhir).format("LL")}</p>
+                </div>
+              </div>
+            </CardInput>
+
+            <CardInput title="Dokumen Aset" className="mt-4">
+              <div
+                className="flex items-center justify-center w-full bg-gray-200 rounded h-64 cursor-pointer"
+                onClick={() => {
+                  setImageToView(viewAssetData.gambar_aset.image_url);
+                  setIsImageModalOpen(true);
+                }}
+              >
+                <img
+                  src={viewAssetData.gambar_aset.image_url}
+                  alt="Gambar Aset"
+                  className="object-contain h-full w-full"
+                />
+              </div>
+            </CardInput>
+
+            <CardInput title="Vendor Aset" className="mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-medium">Nama Vendor</label>
+                  <p>{viewAssetData.vendor?.nama_vendor || "Unknown Vendor"}</p>
+                </div>
+                <div>
+                  <label className="block font-medium">Alamat Vendor</label>
+                  <p>
+                    {viewAssetData.vendor?.alamat_vendor || "Unknown Vendor"}
+                  </p>
+                </div>
+                <div>
+                  <label className="block font-medium">
+                    Informasi Vendor / No Telepon
+                  </label>
+                  <p>{viewAssetData.vendor?.telp_vendor || "Unknown Vendor"}</p>
+                </div>
+              </div>
+            </CardInput>
+          </div>
+        </div>
+      )}
+
+      {isImageModalOpen && imageToView && (
+        <div className="modal modal-open" onClick={closeImageModal}>
+          <div
+            className="modal-box relative max-w-4xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="absolute top-4 right-4 p-2 bg-white rounded-full shadow-lg"
+              onClick={closeImageModal}
+            >
+              <XMarkIcon className="w-6 h-6 text-gray-500" />
+            </button>
+            <img
+              src={imageToView}
+              alt="Gambar Aset"
+              className="object-contain h-full w-full"
+            />
           </div>
         </div>
       )}

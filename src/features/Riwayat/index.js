@@ -1,14 +1,20 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
 import moment from "moment";
 import { useSnackbar } from "notistack";
 import TitleCard from "../../components/Cards/TitleCard";
 import EyeIcon from "@heroicons/react/24/outline/EyeIcon";
-import ConfirmDialog from "../../components/Dialog/ConfirmDialog";
 import CardInput from "../../components/Cards/CardInput";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { FunnelIcon } from "@heroicons/react/24/outline"; // Use the correct icon
+import { FunnelIcon } from "@heroicons/react/24/outline";
+import { fetchData } from "../../utils/utils";
+import BASE_URL_API from "../../config";
+import Button from "../../components/Button";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+
+const API_URL = `${BASE_URL_API}api/v1/manage-aset/pelihara/riwayat`;
+const ITEMS_PER_PAGE = 10;
 
 function RiwayatAset() {
   const [assets, setAssets] = useState([]);
@@ -25,54 +31,28 @@ function RiwayatAset() {
   });
 
   useEffect(() => {
-    fetchAssets(currentPage, searchQuery);
+    fetchAssets(currentPage);
   }, [currentPage, searchQuery]);
 
-  const fetchAssets = async (page, query) => {
+  const fetchAssets = async (page) => {
     try {
-      const pageSize = 10;
-      const response = await axios.get(
-        `URL_API?page=${page}&pageSize=${pageSize}&search=${query}`
+      const limit = 10;
+      const response = await fetchData(
+        `${API_URL}?limit=${limit}&page=${page}`
       );
-      const result = response.data;
-      if (result.code === 0) {
-        setAssets(result.data.assets);
-        setTotalPages(Math.ceil(result.data.totalCount / pageSize));
-      } else {
-        throw new Error("API error: " + result.message);
+      const { data, pagination } = response;
+      setAssets(data);
+      if (pagination) {
+        setTotalPages(pagination.max_page);
       }
     } catch (error) {
       console.error("Fetching error:", error.message);
-      loadDummyData();
+      enqueueSnackbar("Error fetching data.", { variant: "error" });
     }
   };
 
-  const loadDummyData = () => {
-    setAssets([
-      {
-        id: 1,
-        name: "Laptop HP",
-        maintenanceDate: "2023-05-01",
-        vendor: "HP Inc.",
-        responsiblePerson: "John Doe",
-        condition: "Good",
-        status: "Completed",
-      },
-      {
-        id: 2,
-        name: "Printer Epson",
-        maintenanceDate: "2023-04-15",
-        vendor: "Epson",
-        responsiblePerson: "Jane Doe",
-        condition: "Needs Repair",
-        status: "Pending",
-      },
-    ]);
-    setTotalPages(1);
-  };
-
   const handleViewDetail = (id) => {
-    const asset = assets.find((asset) => asset.id === id);
+    const asset = assets.find((asset) => asset._id === id);
     setSelectedAsset(asset);
     setIsModalOpen(true);
     enqueueSnackbar("Menampilkan detail aset.", { variant: "info" });
@@ -115,6 +95,31 @@ function RiwayatAset() {
     setIsFilterOpen(false);
   };
 
+  const handlePrint = () => {
+    const doc = new jsPDF();
+    doc.autoTable({
+      head: [
+        [
+          "Nama Aset",
+          "Tanggal Pemeliharaan",
+          "Vendor Pengelola",
+          "Penanggung Jawab",
+          "Kondisi Aset",
+          "Status",
+        ],
+      ],
+      body: assets.map((asset) => [
+        asset.aset.nama_aset,
+        moment(asset.tgl_dilakukan).format("DD MMM YYYY"),
+        asset.vendor.nama_vendor,
+        asset.penanggung_jawab,
+        asset.kondisi_stlh_perbaikan,
+        asset.status_pemeliharaan,
+      ]),
+    });
+    doc.save("riwayat_aset.pdf");
+  };
+
   return (
     <>
       <TitleCard title="Riwayat Pemeliharaan Aset" topMargin="mt-2">
@@ -126,13 +131,16 @@ function RiwayatAset() {
             value={searchQuery}
             onChange={handleSearchChange}
           />
-          <button
-            className="btn btn-white flex items-center"
-            onClick={handleFilterClick}
-          >
-            <FunnelIcon className="w-5 h-5 mr-2" />
-            Tambahkan Filter
-          </button>
+          <div className="flex">
+            <Button label="Cetak Data" onClick={handlePrint} className="ml-2" />
+            <button
+              className="btn btn-white flex items-center ml-2"
+              onClick={handleFilterClick}
+            >
+              <FunnelIcon className="w-5 h-5 mr-2" />
+              Tambahkan Filter
+            </button>
+          </div>
         </div>
         <div className="overflow-x-auto w-full">
           <table className="table w-full">
@@ -149,17 +157,17 @@ function RiwayatAset() {
             </thead>
             <tbody>
               {assets.map((asset) => (
-                <tr key={asset.id}>
-                  <td>{asset.name}</td>
-                  <td>{moment(asset.maintenanceDate).format("DD MMM YYYY")}</td>
-                  <td>{asset.vendor}</td>
-                  <td>{asset.responsiblePerson}</td>
-                  <td>{asset.condition}</td>
-                  <td>{asset.status}</td>
+                <tr key={asset._id}>
+                  <td>{asset.aset.nama_aset}</td>
+                  <td>{moment(asset.tgl_dilakukan).format("DD MMM YYYY")}</td>
+                  <td>{asset.vendor.nama_vendor}</td>
+                  <td>{asset.penanggung_jawab}</td>
+                  <td>{asset.kondisi_stlh_perbaikan}</td>
+                  <td>{asset.status_pemeliharaan}</td>
                   <td>
                     <button
                       className="btn btn-square btn-ghost"
-                      onClick={() => handleViewDetail(asset.id)}
+                      onClick={() => handleViewDetail(asset._id)}
                     >
                       <EyeIcon className="w-5 h-5" />
                     </button>
@@ -215,13 +223,13 @@ function RiwayatAset() {
                 type="checkbox"
                 id="statusBerhasil"
                 name="status"
-                value="Perbaikan Berhasil"
+                value="Selesai"
                 onChange={handleFilterChange}
                 className="form-checkbox h-4 w-4 text-[#4A5B34] rounded-md"
-                checked={filterConditions.status === "Perbaikan Berhasil"}
+                checked={filterConditions.status === "Selesai"}
               />
               <label htmlFor="statusBerhasil" className="cursor-pointer ml-2">
-                Perbaikan Berhasil
+                Selesai
               </label>
             </div>
             <div className="mb-4 flex items-center border rounded-lg p-2">
@@ -229,10 +237,10 @@ function RiwayatAset() {
                 type="checkbox"
                 id="statusGagal"
                 name="status"
-                value="Perbaikan Gagal"
+                value="Perbaikan gagal"
                 onChange={handleFilterChange}
                 className="form-checkbox h-4 w-4 text-[#4A5B34] rounded-md"
-                checked={filterConditions.status === "Perbaikan Gagal"}
+                checked={filterConditions.status === "Perbaikan gagal"}
               />
               <label htmlFor="statusGagal" className="cursor-pointer ml-2">
                 Perbaikan Gagal
@@ -265,7 +273,7 @@ function RiwayatAset() {
                 <select
                   id="namaAset"
                   name="namaAset"
-                  value={selectedAsset?.name || ""}
+                  value={selectedAsset?.aset.nama_aset || ""}
                   onChange={() => {}}
                   className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
                   disabled
@@ -282,7 +290,7 @@ function RiwayatAset() {
                 <select
                   id="kondisiAset"
                   name="kondisiAset"
-                  value={selectedAsset?.condition || ""}
+                  value={selectedAsset?.kondisi_stlh_perbaikan || ""}
                   onChange={() => {}}
                   className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
                   disabled
@@ -305,7 +313,7 @@ function RiwayatAset() {
                   type="text"
                   id="usiaAsetSaatIni"
                   name="usiaAsetSaatIni"
-                  value={selectedAsset?.age || ""}
+                  value={selectedAsset?.perencanaan.usia_aset || ""}
                   onChange={() => {}}
                   placeholder="Masukkan usia aset saat ini"
                   className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
@@ -320,7 +328,7 @@ function RiwayatAset() {
                   type="text"
                   id="maksimalUsiaAset"
                   name="maksimalUsiaAset"
-                  value={selectedAsset?.maxAge || ""}
+                  value={selectedAsset?.perencanaan.maks_usia_aset || ""}
                   onChange={() => {}}
                   placeholder="Masukkan maksimal usia aset"
                   className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
@@ -335,7 +343,7 @@ function RiwayatAset() {
                   type="text"
                   id="tahunProduksi"
                   name="tahunProduksi"
-                  value={selectedAsset?.productionYear || ""}
+                  value={selectedAsset?.aset.tahun_produksi || ""}
                   onChange={() => {}}
                   placeholder="Masukkan tahun produksi"
                   className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
@@ -353,7 +361,7 @@ function RiwayatAset() {
                   type="text"
                   id="deskripsiKerusakan"
                   name="deskripsiKerusakan"
-                  value={selectedAsset?.damageDescription || ""}
+                  value={selectedAsset?.deskripsi || ""}
                   onChange={() => {}}
                   placeholder="Masukkan Deskripsi Kerusakan"
                   className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
@@ -368,7 +376,11 @@ function RiwayatAset() {
                   Tanggal Rencana Pemeliharaan *
                 </label>
                 <DatePicker
-                  selected={selectedAsset?.maintenanceDate || new Date()}
+                  selected={
+                    selectedAsset?.perencanaan.tgl_perencanaan
+                      ? new Date(selectedAsset.perencanaan.tgl_perencanaan)
+                      : new Date()
+                  }
                   onChange={() => {}}
                   className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
                   dateFormat="MMMM d, yyyy"
@@ -386,7 +398,7 @@ function RiwayatAset() {
                 <select
                   id="statusPerencanaan"
                   name="statusPerencanaan"
-                  value={selectedAsset?.status || ""}
+                  value={selectedAsset?.perencanaan.status_aset || ""}
                   onChange={() => {}}
                   className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
                   disabled
@@ -409,7 +421,7 @@ function RiwayatAset() {
                 <select
                   id="vendorPengelola"
                   name="vendorPengelola"
-                  value={selectedAsset?.vendor || ""}
+                  value={selectedAsset?.vendor.nama_vendor || ""}
                   onChange={() => {}}
                   className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
                   disabled
@@ -427,7 +439,7 @@ function RiwayatAset() {
                   type="text"
                   id="infoVendor"
                   name="infoVendor"
-                  value={selectedAsset?.vendorInfo || ""}
+                  value={selectedAsset?.vendor.telp_vendor || ""}
                   onChange={() => {}}
                   placeholder="Masukkan informasi vendor"
                   className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
