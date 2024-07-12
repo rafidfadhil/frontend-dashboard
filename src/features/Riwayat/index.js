@@ -18,6 +18,7 @@ const ITEMS_PER_PAGE = 10;
 
 function RiwayatAset() {
   const [assets, setAssets] = useState([]);
+  const [filteredAssets, setFilteredAssets] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const { enqueueSnackbar } = useSnackbar();
@@ -33,6 +34,10 @@ function RiwayatAset() {
   useEffect(() => {
     fetchAssets(currentPage);
   }, [currentPage, searchQuery]);
+
+  useEffect(() => {
+    applyFilters();
+  }, [assets, filterConditions]);
 
   const fetchAssets = async (page) => {
     try {
@@ -91,8 +96,17 @@ function RiwayatAset() {
   };
 
   const handleFilterApply = () => {
-    // Apply filtering logic here
     setIsFilterOpen(false);
+  };
+
+  const applyFilters = () => {
+    const { status } = filterConditions;
+    const filtered = assets.filter((asset) => {
+      return (
+        (status ? asset.status_pemeliharaan === status : true)
+      );
+    });
+    setFilteredAssets(filtered);
   };
 
   const handlePrint = () => {
@@ -108,7 +122,7 @@ function RiwayatAset() {
           "Status",
         ],
       ],
-      body: assets.map((asset) => [
+      body: filteredAssets.map((asset) => [
         asset.aset.nama_aset,
         moment(asset.tgl_dilakukan).format("DD MMM YYYY"),
         asset.vendor.nama_vendor,
@@ -156,7 +170,7 @@ function RiwayatAset() {
               </tr>
             </thead>
             <tbody>
-              {assets.map((asset) => (
+              {filteredAssets.map((asset) => (
                 <tr key={asset._id}>
                   <td>{asset.aset.nama_aset}</td>
                   <td>{moment(asset.tgl_dilakukan).format("DD MMM YYYY")}</td>
@@ -237,10 +251,10 @@ function RiwayatAset() {
                 type="checkbox"
                 id="statusGagal"
                 name="status"
-                value="Perbaikan gagal"
+                value="Perbaikan gagal"
                 onChange={handleFilterChange}
                 className="form-checkbox h-4 w-4 text-[#4A5B34] rounded-md"
-                checked={filterConditions.status === "Perbaikan gagal"}
+                checked={filterConditions.status === "Perbaikan gagal"}
               />
               <label htmlFor="statusGagal" className="cursor-pointer ml-2">
                 Perbaikan Gagal
