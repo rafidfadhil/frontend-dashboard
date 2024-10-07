@@ -34,6 +34,7 @@ function DetailVendor() {
     jenis_vendor: "",
   });
   const [searchQuery, setSearchQuery] = useState("");
+  const role = JSON.parse(localStorage.getItem("user"));
 
   useEffect(() => {
     fetchVendors();
@@ -197,41 +198,49 @@ function DetailVendor() {
           <Button label="Cetak Data" onClick={handlePrint} className="ml-2" />
         </div>
         <div className="overflow-x-auto w-full">
-          <table className="table w-full">
-            <thead>
-              <tr>
-                <th>Nama Vendor</th>
-                <th>No Tlp Vendor</th>
-                <th>Alamat</th>
-                <th>Jenis Vendor</th>
-                <th>Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedVendors.map((vendor) => (
-                <tr key={vendor._id}>
-                  <td>{vendor.nama_vendor}</td>
-                  <td>{vendor.telp_vendor}</td>
-                  <td>{vendor.alamat_vendor}</td>
-                  <td>{vendor.jenis_vendor}</td>
-                  <td>
-                    <button
-                      className="btn btn-square btn-ghost"
-                      onClick={() => handleDeleteVendor(vendor._id)}
-                    >
-                      <TrashIcon className="w-5 h-5 text-red-500" />
-                    </button>
-                    <button
-                      className="btn btn-square btn-ghost"
-                      onClick={() => handleEditVendor(vendor)}
-                    >
-                      <PencilIcon className="w-5 h-5 text-yellow-500" />
-                    </button>
-                  </td>
+          {vendors.length === 0 ? (
+            <div className="text-center py-4">
+              Tidak ada data vendor yang ditemukan.
+            </div>
+          ) : (
+            <table className="table w-full">
+              <thead>
+                <tr>
+                  <th>Nama Vendor</th>
+                  <th>No Tlp Vendor</th>
+                  <th>Alamat</th>
+                  <th>Jenis Vendor</th>
+                  <th>Aksi</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {paginatedVendors.map((vendor) => (
+                  <tr key={vendor._id}>
+                    <td>{vendor.nama_vendor}</td>
+                    <td>{vendor.telp_vendor}</td>
+                    <td>{vendor.alamat_vendor}</td>
+                    <td>{vendor.jenis_vendor}</td>
+                    <td>
+                      {role.role !== "admin aset" && (
+                        <button
+                          className="btn btn-square btn-ghost"
+                          onClick={() => handleDeleteVendor(vendor._id)}
+                        >
+                          <TrashIcon className="w-5 h-5 text-red-500" />
+                        </button>
+                      )}
+                      <button
+                        className="btn btn-square btn-ghost"
+                        onClick={() => handleEditVendor(vendor)}
+                      >
+                        <PencilIcon className="w-5 h-5 text-yellow-500" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
         <div className="flex justify-between items-center mt-4">
           <div>

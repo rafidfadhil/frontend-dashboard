@@ -31,7 +31,6 @@ function TambahAset() {
     deskripsi: "",
     tgl_dilakukan: new Date(),
     waktu_pemeliharaan: "",
-    kondisi_stlh_perbaikan: "",
     pengawas: "",
   });
   const [asetList, setAsetList] = useState([]);
@@ -43,7 +42,10 @@ function TambahAset() {
     const fetchDropdownData = async () => {
       try {
         const asetResponse = await fetchData(API_URL_RENCANA);
-        setAsetList(asetResponse.data);
+        const filteredAsets = asetResponse.data.filter(
+          (aset) => aset.status_aset === "Disetujui"
+        );
+        setAsetList(filteredAsets);
 
         const vendorResponse = await fetchData(VENDOR_API_URL);
         setVendorList(vendorResponse.data);
@@ -51,7 +53,7 @@ function TambahAset() {
         const adminResponse = await fetchData(ADMIN_API_URL);
         setAdminList(adminResponse.data);
 
-        if (asetResponse.data.length === 0) {
+        if (filteredAsets.length === 0) {
           enqueueSnackbar("Tidak ada aset yang tersedia untuk pemeliharaan!", {
             variant: "info",
           });
@@ -68,6 +70,21 @@ function TambahAset() {
   const handleInputChange = (event) => {
     const { name, value } = event.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+
+    if (name === "vendorPengelola") {
+      const selectedVendor = vendorList.find((vendor) => vendor._id === value);
+      if (selectedVendor) {
+        setFormData((prev) => ({
+          ...prev,
+          infoVendor: selectedVendor.telp_vendor,
+        }));
+      } else {
+        setFormData((prev) => ({
+          ...prev,
+          infoVendor: "",
+        }));
+      }
+    }
   };
 
   const handleDateChange = (date, name) => {
@@ -97,7 +114,26 @@ function TambahAset() {
         deskripsi: "",
         tgl_dilakukan: new Date(),
         waktu_pemeliharaan: "",
+        pengawas: "",
+      });
+    } else {
+      setSelectedRencana(null);
+      setFormData({
+        rencana_id: "",
+        namaAset: "",
         kondisi_stlh_perbaikan: "",
+        usiaAsetSaatIni: "",
+        maksimalUsiaAset: "",
+        tahunProduksi: "",
+        tanggalPemeliharaanAset: new Date(),
+        deskripsiKerusakan: "",
+        status_pemeliharaan: "",
+        vendorPengelola: "",
+        infoVendor: "",
+        penanggung_jawab: "",
+        deskripsi: "",
+        tgl_dilakukan: new Date(),
+        waktu_pemeliharaan: "",
         pengawas: "",
       });
     }
@@ -107,10 +143,10 @@ function TambahAset() {
     event.preventDefault();
     const submitData = {
       rencana_id: formData.rencana_id,
-      admin_id: formData.penanggung_jawab, // Sesuai dengan form admin_id yang dipilih
+      admin_id: formData.penanggung_jawab,
       kondisi_stlh_perbaikan: formData.kondisi_stlh_perbaikan,
       status_pemeliharaan: formData.status_pemeliharaan,
-      penanggung_jawab: formData.pengawas, // Pengawas diisi ke penanggung_jawab
+      penanggung_jawab: formData.pengawas,
       deskripsi: formData.deskripsi,
       tgl_dilakukan: formData.tgl_dilakukan,
       waktu_pemeliharaan: formData.waktu_pemeliharaan,
@@ -191,9 +227,9 @@ function TambahAset() {
                   name="usiaAsetSaatIni"
                   value={formData.usiaAsetSaatIni}
                   onChange={handleInputChange}
-                  placeholder="Masukkan usia aset saat ini"
-                  className={getInputClassName(!!formData.usiaAsetSaatIni)}
-                  disabled={!!formData.usiaAsetSaatIni}
+                  placeholder="Masukkan usia aset saat ini (Tahun)"
+                  className={getInputClassName(!!selectedRencana)}
+                  readOnly={!!selectedRencana}
                 />
               </div>
               <div>
@@ -206,9 +242,9 @@ function TambahAset() {
                   name="maksimalUsiaAset"
                   value={formData.maksimalUsiaAset}
                   onChange={handleInputChange}
-                  placeholder="Masukkan maksimal usia aset"
-                  className={getInputClassName(!!formData.maksimalUsiaAset)}
-                  disabled={!!formData.maksimalUsiaAset}
+                  placeholder="Masukkan maksimal usia aset (Tahun)"
+                  className={getInputClassName(!!selectedRencana)}
+                  readOnly={!!selectedRencana}
                 />
               </div>
               <div>
@@ -222,8 +258,8 @@ function TambahAset() {
                   value={formData.tahunProduksi}
                   onChange={handleInputChange}
                   placeholder="Masukkan tahun produksi"
-                  className={getInputClassName(!!formData.tahunProduksi)}
-                  disabled={!!formData.tahunProduksi}
+                  className={getInputClassName(!!selectedRencana)}
+                  readOnly={!!selectedRencana}
                 />
               </div>
               <div>
@@ -240,8 +276,8 @@ function TambahAset() {
                   value={formData.deskripsiKerusakan}
                   onChange={handleInputChange}
                   placeholder="Masukkan Deskripsi Kerusakan"
-                  className={getInputClassName(!!formData.deskripsiKerusakan)}
-                  disabled={!!formData.deskripsiKerusakan}
+                  className={getInputClassName(!!selectedRencana)}
+                  readOnly={!!selectedRencana}
                 />
               </div>
               <div>
@@ -259,7 +295,7 @@ function TambahAset() {
                   className="w-full p-2 border border-gray-300 rounded bg-gray-50 text-gray-900"
                   wrapperClassName="date-picker"
                   dateFormat="MMMM d, yyyy"
-                  disabled
+                  disabled={!!selectedRencana}
                 />
               </div>
               <div>
@@ -296,8 +332,8 @@ function TambahAset() {
                   name="vendorPengelola"
                   value={formData.vendorPengelola}
                   onChange={handleInputChange}
-                  className={getInputClassName(!!formData.vendorPengelola)}
-                  disabled={!!formData.vendorPengelola}
+                  className={getInputClassName(!!selectedRencana)}
+                  readOnly={!!selectedRencana}
                 >
                   <option value="">Pilih vendor</option>
                   {vendorList.map((vendor) => (
@@ -309,7 +345,7 @@ function TambahAset() {
               </div>
               <div>
                 <label htmlFor="infoVendor" className="block font-medium">
-                  Informasi vendor / no telepon
+                  Informasi Vendor / No Telepon
                 </label>
                 <input
                   type="text"
@@ -318,8 +354,8 @@ function TambahAset() {
                   value={formData.infoVendor}
                   onChange={handleInputChange}
                   placeholder="Masukkan informasi vendor"
-                  className={getInputClassName(!!formData.infoVendor)}
-                  disabled={!!formData.infoVendor}
+                  className={getInputClassName(!!selectedRencana)}
+                  readOnly={true}
                 />
               </div>
             </div>
